@@ -58,7 +58,7 @@ export default function HomeScreen() {
     <View style={styles.header}>
       <ThemedText type="title">Daily Games</ThemedText>
       <ThemedText style={styles.subtitle}>
-        {games.length} {games.length === 1 ? "game" : "games"} available
+        {games.length} {games.length === 1 ? "game" : "games"} in your collection
       </ThemedText>
     </View>
   );

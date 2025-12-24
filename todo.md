@@ -94,3 +94,11 @@
 - [x] Show streak stats in game detail screen
 - [x] Add streak indicator with fire emoji
 - [x] Update leaderboard to show total streaks
+
+## Add New Games
+- [x] Add Guardian Daily Mini crossword
+- [x] Add Geoguessr
+- [x] Add Bandle
+- [x] Add Reunion
+- [x] Add Strands from NYT
+- [x] Add Waffle
