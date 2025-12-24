@@ -6,6 +6,9 @@ export interface Game {
   icon: string;
   dateAdded: number;
   lastPlayed?: number;
+  currentStreak: number;
+  longestStreak: number;
+  playHistory: number[]; // Array of timestamps when game was played
 }
 
 export interface Player {

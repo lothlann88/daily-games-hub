@@ -176,6 +176,29 @@ export default function GameDetailScreen() {
             {game.name}
           </ThemedText>
           <ThemedText style={styles.gameCategory}>{game.category}</ThemedText>
+          
+          {(game.currentStreak > 0 || game.longestStreak > 0) && (
+            <View style={styles.streakInfo}>
+              {game.currentStreak > 0 && (
+                <View style={styles.streakBadge}>
+                  <ThemedText style={styles.streakEmoji}>🔥</ThemedText>
+                  <View>
+                    <ThemedText style={styles.streakValue}>{game.currentStreak}</ThemedText>
+                    <ThemedText style={styles.streakLabel}>Current Streak</ThemedText>
+                  </View>
+                </View>
+              )}
+              {game.longestStreak > 0 && (
+                <View style={styles.streakBadge}>
+                  <ThemedText style={styles.streakEmoji}>🏆</ThemedText>
+                  <View>
+                    <ThemedText style={styles.streakValue}>{game.longestStreak}</ThemedText>
+                    <ThemedText style={styles.streakLabel}>Longest Streak</ThemedText>
+                  </View>
+                </View>
+              )}
+            </View>
+          )}
         </View>
 
         <Pressable
@@ -386,6 +409,33 @@ const styles = StyleSheet.create({
   gameCategory: {
     fontSize: 14,
     lineHeight: 20,
+    opacity: 0.6,
+  },
+  streakInfo: {
+    flexDirection: "row",
+    gap: 16,
+    marginTop: 16,
+  },
+  streakBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: "rgba(0, 122, 255, 0.1)",
+  },
+  streakEmoji: {
+    fontSize: 32,
+  },
+  streakValue: {
+    fontSize: 20,
+    fontWeight: "bold",
+    lineHeight: 24,
+  },
+  streakLabel: {
+    fontSize: 12,
+    lineHeight: 16,
     opacity: 0.6,
   },
   playButton: {

@@ -17,6 +17,7 @@ import { GameCard } from "@/components/game-card";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useGames } from "@/hooks/use-storage";
 import { useThemeColor } from "@/hooks/use-theme-color";
+import { wasPlayedToday } from "@/lib/streaks";
 import { Game } from "@/types";
 
 export default function HomeScreen() {
@@ -43,19 +44,13 @@ export default function HomeScreen() {
     router.push("/add-game" as any);
   };
 
-  // Check if game was played today (simplified - checks if lastPlayed is today)
-  const isPlayedToday = (game: Game): boolean => {
-    if (!game.lastPlayed) return false;
-    const today = new Date().setHours(0, 0, 0, 0);
-    const playedDate = new Date(game.lastPlayed).setHours(0, 0, 0, 0);
-    return today === playedDate;
-  };
+
 
   const renderGame = ({ item }: { item: Game }) => (
     <GameCard
       game={item}
       onPress={() => handleGamePress(item)}
-      isPlayedToday={isPlayedToday(item)}
+      isPlayedToday={wasPlayedToday(item)}
     />
   );
 

@@ -67,6 +67,9 @@ export default function AddGameScreen() {
         category,
         icon,
         dateAdded: Date.now(),
+        currentStreak: 0,
+        longestStreak: 0,
+        playHistory: [],
       };
 
       await addGame(newGame);

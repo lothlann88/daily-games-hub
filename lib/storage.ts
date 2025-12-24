@@ -100,8 +100,28 @@ export async function addScore(score: Score): Promise<void> {
   scores.push(score);
   await saveScores(scores);
   
-  // Update game's lastPlayed timestamp
-  await updateGame(score.gameId, { lastPlayed: score.datePlayed });
+  // Update game's lastPlayed timestamp and streaks
+  const games = await getGames();
+  const game = games.find((g) => g.id === score.gameId);
+  if (game) {
+    const updatedHistory = [...game.playHistory, score.datePlayed];
+    
+    // Import streak calculation functions
+    const { calculateCurrentStreak, calculateLongestStreak } = await import("./streaks");
+    
+    const currentStreak = calculateCurrentStreak(updatedHistory);
+    const longestStreak = Math.max(
+      calculateLongestStreak(updatedHistory),
+      game.longestStreak
+    );
+    
+    await updateGame(score.gameId, {
+      lastPlayed: score.datePlayed,
+      playHistory: updatedHistory,
+      currentStreak,
+      longestStreak,
+    });
+  }
 }
 
 export async function getScoresByGame(gameId: string): Promise<Score[]> {
@@ -143,6 +163,9 @@ function getDefaultGames(): Game[] {
       category: "Word Games",
       icon: "🔤",
       dateAdded: Date.now(),
+      currentStreak: 0,
+      longestStreak: 0,
+      playHistory: [],
     },
     {
       id: "nyt-mini",
@@ -151,6 +174,9 @@ function getDefaultGames(): Game[] {
       category: "Puzzles",
       icon: "📰",
       dateAdded: Date.now(),
+      currentStreak: 0,
+      longestStreak: 0,
+      playHistory: [],
     },
     {
       id: "linkedin-queens",
@@ -159,6 +185,9 @@ function getDefaultGames(): Game[] {
       category: "Strategy",
       icon: "👑",
       dateAdded: Date.now(),
+      currentStreak: 0,
+      longestStreak: 0,
+      playHistory: [],
     },
     {
       id: "linkedin-pinpoint",
@@ -167,6 +196,9 @@ function getDefaultGames(): Game[] {
       category: "Word Games",
       icon: "📍",
       dateAdded: Date.now(),
+      currentStreak: 0,
+      longestStreak: 0,
+      playHistory: [],
     },
     {
       id: "connections",
@@ -175,6 +207,9 @@ function getDefaultGames(): Game[] {
       category: "Word Games",
       icon: "🔗",
       dateAdded: Date.now(),
+      currentStreak: 0,
+      longestStreak: 0,
+      playHistory: [],
     },
     {
       id: "spelling-bee",
@@ -183,6 +218,9 @@ function getDefaultGames(): Game[] {
       category: "Word Games",
       icon: "🐝",
       dateAdded: Date.now(),
+      currentStreak: 0,
+      longestStreak: 0,
+      playHistory: [],
     },
     {
       id: "sudoku",
@@ -191,6 +229,9 @@ function getDefaultGames(): Game[] {
       category: "Puzzles",
       icon: "🔢",
       dateAdded: Date.now(),
+      currentStreak: 0,
+      longestStreak: 0,
+      playHistory: [],
     },
   ];
 }

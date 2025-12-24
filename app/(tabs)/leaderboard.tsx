@@ -206,6 +206,39 @@ export default function LeaderboardScreen() {
           </View>
         )}
 
+        {games.length > 0 && (
+          <View style={styles.section}>
+            <ThemedText type="subtitle" style={styles.sectionTitle}>
+              Active Streaks
+            </ThemedText>
+            {games
+              .filter((game) => game.currentStreak > 0)
+              .sort((a, b) => b.currentStreak - a.currentStreak)
+              .map((game) => (
+                <View
+                  key={game.id}
+                  style={[styles.streakCard, { backgroundColor: cardBackground }]}
+                >
+                  <View style={styles.streakCardLeft}>
+                    <ThemedText style={styles.streakGameIcon}>{game.icon}</ThemedText>
+                    <ThemedText type="defaultSemiBold">{game.name}</ThemedText>
+                  </View>
+                  <View style={styles.streakCardRight}>
+                    <ThemedText style={styles.streakEmoji}>🔥</ThemedText>
+                    <ThemedText style={styles.streakValue}>{game.currentStreak}</ThemedText>
+                  </View>
+                </View>
+              ))}
+            {games.every((game) => game.currentStreak === 0) && (
+              <View style={styles.emptyStreakContainer}>
+                <ThemedText style={styles.emptyStreakText}>
+                  No active streaks yet. Start playing daily to build streaks!
+                </ThemedText>
+              </View>
+            )}
+          </View>
+        )}
+
         {filteredScores.length === 0 && (
           <View style={styles.emptyContainer}>
             <ThemedText style={styles.emptyText}>No scores yet</ThemedText>
@@ -342,6 +375,45 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   emptySubtext: {
+    fontSize: 14,
+    lineHeight: 20,
+    opacity: 0.6,
+    textAlign: "center",
+  },
+  streakCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: 16,
+    borderRadius: 12,
+  },
+  streakCardLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  streakGameIcon: {
+    fontSize: 24,
+  },
+  streakCardRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  streakEmoji: {
+    fontSize: 24,
+  },
+  streakValue: {
+    fontSize: 20,
+    fontWeight: "bold",
+    lineHeight: 24,
+  },
+  emptyStreakContainer: {
+    paddingVertical: 24,
+    paddingHorizontal: 16,
+    alignItems: "center",
+  },
+  emptyStreakText: {
     fontSize: 14,
     lineHeight: 20,
     opacity: 0.6,

@@ -85,3 +85,12 @@
 ## Final Delivery
 - [x] Create checkpoint
 - [x] Provide user with app version
+
+## Streak Tracking Feature
+- [x] Update Game type to include currentStreak and longestStreak fields
+- [x] Create streak calculation utility function
+- [x] Update storage to track play history per game
+- [x] Display current streak on game cards
+- [x] Show streak stats in game detail screen
+- [x] Add streak indicator with fire emoji
+- [x] Update leaderboard to show total streaks

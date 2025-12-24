@@ -40,11 +40,18 @@ export function GameCard({ game, onPress, isPlayedToday }: GameCardProps) {
           </ThemedText>
           <ThemedText style={styles.category}>{game.category}</ThemedText>
         </View>
-        {isPlayedToday && (
-          <View style={[styles.badge, { backgroundColor: successColor }]}>
-            <ThemedText style={styles.badgeText}>✓</ThemedText>
-          </View>
-        )}
+        <View style={styles.badges}>
+          {game.currentStreak > 0 && (
+            <View style={[styles.badge, { backgroundColor: "#FF9500" }]}>
+              <ThemedText style={styles.badgeText}>🔥 {game.currentStreak}</ThemedText>
+            </View>
+          )}
+          {isPlayedToday && (
+            <View style={[styles.badge, { backgroundColor: successColor }]}>
+              <ThemedText style={styles.badgeText}>✓</ThemedText>
+            </View>
+          )}
+        </View>
       </View>
     </Pressable>
   );
@@ -93,17 +100,21 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     opacity: 0.6,
   },
+  badges: {
+    flexDirection: "row",
+    gap: 8,
+    marginLeft: 8,
+  },
   badge: {
-    width: 24,
-    height: 24,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
     borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
-    marginLeft: 8,
   },
   badgeText: {
     color: "#fff",
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: "bold",
   },
 });
