@@ -122,3 +122,13 @@
 - [x] Implement swipe left to delete game
 - [x] Implement swipe right to favorite game
 - [x] Add favorites section at top of list
+
+## Calendar & Data Management
+- [x] Create calendar component to visualize play history
+- [x] Add calendar view to game detail screen
+- [x] Show monthly view with play indicators
+- [x] Highlight current day and streaks
+- [x] Implement data export to JSON
+- [x] Implement data import from JSON
+- [x] Add export/import UI in settings
+- [x] Add share functionality for exported data

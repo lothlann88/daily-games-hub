@@ -13,19 +13,71 @@ import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { usePlayers, usePreferences } from "@/hooks/use-storage";
+import { usePlayers, usePreferences, useGames, useScores } from "@/hooks/use-storage";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import * as notificationLib from "@/lib/notifications";
+import * as dataTransfer from "@/lib/data-transfer";
 
 export default function SettingsScreen() {
   const { players, loading: playersLoading, updatePlayer } = usePlayers();
   const { preferences, loading: prefsLoading, updatePreferences } = usePreferences();
+  const { refresh: refreshGames } = useGames();
+  const { refresh: refreshScores } = useScores();
   const insets = useSafeAreaInsets();
   const tintColor = useThemeColor({}, "tint");
   const cardBackground = useThemeColor({}, "card");
   const borderColor = useThemeColor({}, "cardBorder");
 
   const loading = playersLoading || prefsLoading;
+
+  const handleExportData = async () => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      await dataTransfer.exportAndShare();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (error) {
+      Alert.alert("Export Failed", "Failed to export data. Please try again.");
+    }
+  };
+
+  const handleImportData = async () => {
+    Alert.alert(
+      "Import Data",
+      "Choose how to import:",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Replace All",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await dataTransfer.pickAndImportData();
+              await refreshGames();
+              await refreshScores();
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              Alert.alert("Success", "Data imported successfully!");
+            } catch (error) {
+              Alert.alert("Import Failed", "Failed to import data. Please check the file format.");
+            }
+          },
+        },
+        {
+          text: "Merge",
+          onPress: async () => {
+            try {
+              const result = await dataTransfer.pickAndImportData();
+              await refreshGames();
+              await refreshScores();
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              Alert.alert("Success", "Data merged successfully!");
+            } catch (error) {
+              Alert.alert("Import Failed", "Failed to import data. Please check the file format.");
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const handleEditPlayer = (playerId: string, currentName: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -189,6 +241,37 @@ export default function SettingsScreen() {
           )}
         </View>
 
+        {/* Data Management */}
+        <View style={styles.section}>
+          <ThemedText type="subtitle" style={styles.sectionTitle}>
+            Data Management
+          </ThemedText>
+          <Pressable
+            onPress={handleExportData}
+            style={[styles.settingRow, { backgroundColor: cardBackground, borderColor }]}
+          >
+            <View style={styles.settingRowLeft}>
+              <ThemedText>Export Data</ThemedText>
+              <ThemedText style={styles.settingDescription}>
+                Backup all your games, scores, and settings
+              </ThemedText>
+            </View>
+            <ThemedText style={{ color: tintColor }}>Share</ThemedText>
+          </Pressable>
+          <Pressable
+            onPress={handleImportData}
+            style={[styles.settingRow, { backgroundColor: cardBackground, borderColor }]}
+          >
+            <View style={styles.settingRowLeft}>
+              <ThemedText>Import Data</ThemedText>
+              <ThemedText style={styles.settingDescription}>
+                Restore from a backup file
+              </ThemedText>
+            </View>
+            <ThemedText style={{ color: tintColor }}>Import</ThemedText>
+          </Pressable>
+        </View>
+
         <View style={styles.section}>
           <ThemedText type="subtitle" style={styles.sectionTitle}>
             About
@@ -243,10 +326,15 @@ const styles = StyleSheet.create({
     minHeight: 56,
   },
   settingRowLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
+    flexDirection: "column",
+    alignItems: "flex-start",
+    gap: 4,
     flex: 1,
+  },
+  settingDescription: {
+    fontSize: 13,
+    lineHeight: 18,
+    opacity: 0.6,
   },
   settingRowRight: {
     fontSize: 14,

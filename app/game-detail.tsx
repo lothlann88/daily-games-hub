@@ -18,6 +18,7 @@ import { ThemedView } from "@/components/themed-view";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { getGameIcon } from "@/components/ui/game-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { PlayCalendar } from "@/components/play-calendar";
 import { useGames, usePlayers, useScores } from "@/hooks/use-storage";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { Score } from "@/types";
@@ -220,6 +221,18 @@ export default function GameDetailScreen() {
         >
           <ThemedText style={styles.playButtonText}>Play Now</ThemedText>
         </Pressable>
+
+        {/* Play History Calendar */}
+        <View style={[styles.section, { backgroundColor: cardBackground, borderColor }]}>
+          <ThemedText type="subtitle" style={styles.sectionTitle}>
+            Play History
+          </ThemedText>
+          <PlayCalendar
+            playHistory={game.playHistory}
+            currentStreak={game.currentStreak}
+            longestStreak={game.longestStreak}
+          />
+        </View>
 
         <View style={[styles.section, { backgroundColor: cardBackground }]}>
           <ThemedText type="subtitle" style={styles.sectionTitle}>
