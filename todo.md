@@ -132,3 +132,6 @@
 - [x] Implement data import from JSON
 - [x] Add export/import UI in settings
 - [x] Add share functionality for exported data
+
+## Bug Fixes
+- [x] Fix scrolling issue - cannot scroll down in the app (fixed pan gesture to allow vertical scrolling)

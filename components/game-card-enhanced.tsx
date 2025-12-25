@@ -61,6 +61,8 @@ export function GameCardEnhanced({
   };
 
   const panGesture = Gesture.Pan()
+    .activeOffsetX([-10, 10]) // Only activate on horizontal swipe
+    .failOffsetY([-10, 10]) // Fail if vertical movement detected
     .onUpdate((event) => {
       translateX.value = event.translationX;
     })
