@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   StyleSheet,
   FlatList,
@@ -6,6 +6,9 @@ import {
   View,
   Pressable,
   ActivityIndicator,
+  TextInput,
+  Alert,
+  ScrollView,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -13,20 +16,46 @@ import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
+import { GameCardEnhanced } from "@/components/game-card-enhanced";
 import { GameCard } from "@/components/game-card";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useGames } from "@/hooks/use-storage";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { wasPlayedToday } from "@/lib/streaks";
-import { Game } from "@/types";
+import { fetchGameLogo } from "@/lib/logo-fetcher";
+import { Game, GameCategory } from "@/types";
+
+const CATEGORIES: Array<GameCategory | "All"> = ["All", "Word Games", "Puzzles", "Strategy", "Trivia"];
 
 export default function HomeScreen() {
-  const { games, loading, refresh } = useGames();
+  const { games, loading, refresh, updateGame, deleteGame } = useGames();
   const [refreshing, setRefreshing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<GameCategory | "All">("All");
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const tintColor = useThemeColor({}, "tint");
   const backgroundColor = useThemeColor({}, "background");
+  const cardBackground = useThemeColor({}, "card");
+  const borderColor = useThemeColor({}, "cardBorder");
+  const inputBackground = useThemeColor({ light: "#F9FAFB", dark: "#374151" }, "card");
+
+  // Fetch logos for games that don't have them
+  useEffect(() => {
+    const fetchLogos = async () => {
+      for (const game of games) {
+        if (!game.logoUrl) {
+          const logoUrl = await fetchGameLogo(game.url);
+          if (logoUrl) {
+            await updateGame(game.id, { logoUrl });
+          }
+        }
+      }
+    };
+    if (games.length > 0) {
+      fetchLogos();
+    }
+  }, [games.length]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -44,12 +73,66 @@ export default function HomeScreen() {
     router.push("/add-game" as any);
   };
 
+  const handleDeleteGame = (gameId: string, gameName: string) => {
+    Alert.alert(
+      "Delete Game",
+      `Are you sure you want to delete "${gameName}"?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            await deleteGame(gameId);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          },
+        },
+      ]
+    );
+  };
 
+  const handleToggleFavorite = async (gameId: string, currentFavorite: boolean) => {
+    await updateGame(gameId, { isFavorite: !currentFavorite });
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  // Filter and sort games
+  const filteredGames = useMemo(() => {
+    let filtered = games;
+
+    // Apply category filter
+    if (selectedCategory !== "All") {
+      filtered = filtered.filter((game) => game.category === selectedCategory);
+    }
+
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        (game) =>
+          game.name.toLowerCase().includes(query) ||
+          game.category.toLowerCase().includes(query)
+      );
+    }
+
+    // Sort: favorites first, then by name
+    return filtered.sort((a, b) => {
+      if (a.isFavorite && !b.isFavorite) return -1;
+      if (!a.isFavorite && b.isFavorite) return 1;
+      return a.name.localeCompare(b.name);
+    });
+  }, [games, selectedCategory, searchQuery]);
+
+  const favoriteGames = useMemo(() => {
+    return games.filter((game) => game.isFavorite);
+  }, [games]);
 
   const renderGame = ({ item }: { item: Game }) => (
-    <GameCard
+    <GameCardEnhanced
       game={item}
       onPress={() => handleGamePress(item)}
+      onDelete={() => handleDeleteGame(item.id, item.name)}
+      onToggleFavorite={() => handleToggleFavorite(item.id, item.isFavorite)}
       isPlayedToday={wasPlayedToday(item)}
     />
   );
@@ -58,15 +141,77 @@ export default function HomeScreen() {
     <View style={styles.header}>
       <ThemedText type="title">Daily Games</ThemedText>
       <ThemedText style={styles.subtitle}>
-        {games.length} {games.length === 1 ? "game" : "games"} in your collection
+        {filteredGames.length} {filteredGames.length === 1 ? "game" : "games"}
+        {favoriteGames.length > 0 && ` · ${favoriteGames.length} ⭐`}
       </ThemedText>
+
+      {/* Search bar */}
+      <View style={[styles.searchContainer, { backgroundColor: inputBackground, borderColor }]}>
+        <IconSymbol name="magnifyingglass" size={20} color={tintColor} />
+        <TextInput
+          style={[styles.searchInput, { color: useThemeColor({}, "text") }]}
+          placeholder="Search games..."
+          placeholderTextColor={useThemeColor({ light: "#9CA3AF", dark: "#6B7280" }, "icon")}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+        />
+        {searchQuery.length > 0 && (
+          <Pressable onPress={() => setSearchQuery("")}>
+            <IconSymbol name="xmark.circle.fill" size={20} color={tintColor} />
+          </Pressable>
+        )}
+      </View>
+
+      {/* Category filters */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.categoriesContainer}
+      >
+        {CATEGORIES.map((category) => (
+          <Pressable
+            key={category}
+            onPress={() => {
+              setSelectedCategory(category);
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }}
+            style={[
+              styles.categoryChip,
+              {
+                backgroundColor:
+                  selectedCategory === category ? tintColor : cardBackground,
+                borderColor,
+              },
+            ]}
+          >
+            <ThemedText
+              style={[
+                styles.categoryText,
+                {
+                  color: selectedCategory === category ? "#FFFFFF" : useThemeColor({}, "text"),
+                },
+              ]}
+            >
+              {category}
+            </ThemedText>
+          </Pressable>
+        ))}
+      </ScrollView>
     </View>
   );
 
   const renderEmpty = () => (
     <View style={styles.emptyContainer}>
-      <ThemedText style={styles.emptyText}>No games yet</ThemedText>
-      <ThemedText style={styles.emptySubtext}>Tap the + button to add your first game</ThemedText>
+      <ThemedText style={styles.emptyText}>
+        {searchQuery || selectedCategory !== "All"
+          ? "No games found"
+          : "No games yet"}
+      </ThemedText>
+      <ThemedText style={styles.emptySubtext}>
+        {searchQuery || selectedCategory !== "All"
+          ? "Try adjusting your filters"
+          : "Tap the + button to add your first game"}
+      </ThemedText>
     </View>
   );
 
@@ -81,7 +226,7 @@ export default function HomeScreen() {
   return (
     <ThemedView style={styles.container}>
       <FlatList
-        data={games}
+        data={filteredGames}
         renderItem={renderGame}
         keyExtractor={(item) => item.id}
         ListHeaderComponent={renderHeader}
@@ -96,23 +241,25 @@ export default function HomeScreen() {
         contentContainerStyle={[
           styles.listContent,
           {
-            paddingTop: Math.max(insets.top, 20) + 8,
+            paddingTop: Math.max(insets.top, 20),
             paddingBottom: Math.max(insets.bottom, 20) + 80,
           },
         ]}
         showsVerticalScrollIndicator={false}
       />
+
+      {/* Floating add button */}
       <Pressable
         onPress={handleAddGame}
         style={[
-          styles.fab,
+          styles.floatingButton,
           {
             backgroundColor: tintColor,
-            bottom: Math.max(insets.bottom, 20) + 60,
+            bottom: Math.max(insets.bottom, 20) + 70,
           },
         ]}
       >
-        <IconSymbol name="plus" size={24} color="#fff" />
+        <IconSymbol name="plus" size={28} color="#fff" />
       </Pressable>
     </ThemedView>
   );
@@ -133,12 +280,42 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: 16,
     paddingBottom: 16,
-    gap: 4,
+    gap: 12,
   },
   subtitle: {
     fontSize: 14,
     lineHeight: 20,
     opacity: 0.6,
+  },
+  searchContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 8,
+    marginTop: 4,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    lineHeight: 22,
+  },
+  categoriesContainer: {
+    gap: 8,
+    paddingVertical: 4,
+  },
+  categoryChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  categoryText: {
+    fontSize: 14,
+    fontWeight: "600",
+    lineHeight: 20,
   },
   emptyContainer: {
     paddingVertical: 60,
@@ -147,19 +324,18 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   emptyText: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "600",
     textAlign: "center",
   },
   emptySubtext: {
     fontSize: 14,
-    lineHeight: 20,
     opacity: 0.6,
     textAlign: "center",
   },
-  fab: {
+  floatingButton: {
     position: "absolute",
-    right: 16,
+    right: 20,
     width: 56,
     height: 56,
     borderRadius: 28,

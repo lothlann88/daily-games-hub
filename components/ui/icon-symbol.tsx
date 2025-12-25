@@ -43,3 +43,13 @@ export function IconSymbol({
 }) {
   return <MaterialIcons color={color} size={size} name={MAPPING[name]} style={style} />;
 }
+
+// Add missing icon mappings
+const ADDITIONAL_MAPPING = {
+  "magnifyingglass": "search",
+  "xmark.circle.fill": "cancel",
+  "plus": "add",
+};
+
+// Merge mappings
+Object.assign(MAPPING, ADDITIONAL_MAPPING);

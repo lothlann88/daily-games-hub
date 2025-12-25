@@ -112,3 +112,13 @@
 - [x] Implement gradient backgrounds
 - [x] Update badge styling
 - [x] Improve overall spacing and layout
+
+## New Features - Enhanced UX
+- [x] Implement automatic logo/favicon fetching from game URLs
+- [x] Add logo caching system
+- [x] Add search bar to home screen
+- [x] Implement search filtering
+- [x] Add category filter tabs (All, Word Games, Puzzles, Strategy, Trivia)
+- [x] Implement swipe left to delete game
+- [x] Implement swipe right to favorite game
+- [x] Add favorites section at top of list

@@ -9,6 +9,8 @@ export interface Game {
   currentStreak: number;
   longestStreak: number;
   playHistory: number[]; // Array of timestamps when game was played
+  logoUrl?: string; // Fetched logo/favicon URL
+  isFavorite: boolean;
 }
 
 export interface Player {

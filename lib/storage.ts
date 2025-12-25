@@ -166,6 +166,7 @@ function getDefaultGames(): Game[] {
       currentStreak: 0,
       longestStreak: 0,
       playHistory: [],
+      isFavorite: false,
     },
     {
       id: "nyt-mini",
@@ -177,6 +178,7 @@ function getDefaultGames(): Game[] {
       currentStreak: 0,
       longestStreak: 0,
       playHistory: [],
+      isFavorite: false,
     },
     {
       id: "linkedin-queens",
@@ -188,6 +190,7 @@ function getDefaultGames(): Game[] {
       currentStreak: 0,
       longestStreak: 0,
       playHistory: [],
+      isFavorite: false,
     },
     {
       id: "linkedin-pinpoint",
@@ -199,6 +202,7 @@ function getDefaultGames(): Game[] {
       currentStreak: 0,
       longestStreak: 0,
       playHistory: [],
+      isFavorite: false,
     },
     {
       id: "connections",
@@ -210,6 +214,7 @@ function getDefaultGames(): Game[] {
       currentStreak: 0,
       longestStreak: 0,
       playHistory: [],
+      isFavorite: false,
     },
     {
       id: "spelling-bee",
@@ -221,6 +226,7 @@ function getDefaultGames(): Game[] {
       currentStreak: 0,
       longestStreak: 0,
       playHistory: [],
+      isFavorite: false,
     },
     {
       id: "sudoku",
@@ -232,6 +238,7 @@ function getDefaultGames(): Game[] {
       currentStreak: 0,
       longestStreak: 0,
       playHistory: [],
+      isFavorite: false,
     },
     {
       id: "guardian-mini",
@@ -243,6 +250,7 @@ function getDefaultGames(): Game[] {
       currentStreak: 0,
       longestStreak: 0,
       playHistory: [],
+      isFavorite: false,
     },
     {
       id: "geoguessr",
@@ -254,6 +262,7 @@ function getDefaultGames(): Game[] {
       currentStreak: 0,
       longestStreak: 0,
       playHistory: [],
+      isFavorite: false,
     },
     {
       id: "bandle",
@@ -265,6 +274,7 @@ function getDefaultGames(): Game[] {
       currentStreak: 0,
       longestStreak: 0,
       playHistory: [],
+      isFavorite: false,
     },
     {
       id: "reunion",
@@ -276,6 +286,7 @@ function getDefaultGames(): Game[] {
       currentStreak: 0,
       longestStreak: 0,
       playHistory: [],
+      isFavorite: false,
     },
     {
       id: "strands",
@@ -287,6 +298,7 @@ function getDefaultGames(): Game[] {
       currentStreak: 0,
       longestStreak: 0,
       playHistory: [],
+      isFavorite: false,
     },
     {
       id: "waffle",
@@ -298,6 +310,7 @@ function getDefaultGames(): Game[] {
       currentStreak: 0,
       longestStreak: 0,
       playHistory: [],
+      isFavorite: false,
     },
   ];
 }
