@@ -1,48 +1,92 @@
 import { Pressable, StyleSheet, View } from "react-native";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
+import { LinearGradient } from "expo-linear-gradient";
+
 import { ThemedText } from "./themed-text";
-import { ThemedView } from "./themed-view";
-import { Game } from "@/types";
 import { useThemeColor } from "@/hooks/use-theme-color";
-import * as Haptics from "expo-haptics";
+import { getGameIcon } from "./ui/game-icons";
+import { Game } from "@/types";
 
 interface GameCardProps {
   game: Game;
   onPress: () => void;
-  isPlayedToday?: boolean;
+  isPlayedToday: boolean;
 }
 
 export function GameCard({ game, onPress, isPlayedToday }: GameCardProps) {
-  const cardBackground = useThemeColor({}, "background");
-  const borderColor = useThemeColor({ light: "#E5E5EA", dark: "#38383A" }, "background");
-  const successColor = "#34C759";
+  const scale = useSharedValue(1);
+  const tintColor = useThemeColor({}, "tint");
+  const cardBackground = useThemeColor({ light: "#FFFFFF", dark: "#1F2937" }, "card");
+  const borderColor = useThemeColor({ light: "#E5E7EB", dark: "#374151" }, "cardBorder");
+  const shadowColor = useThemeColor({}, "shadow");
+  const successColor = useThemeColor({ light: "#10B981", dark: "#34D399" }, "success");
+  const gradient1 = useThemeColor({}, "gradient1");
+  const gradient2 = useThemeColor({}, "gradient2");
 
-  const handlePress = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    onPress();
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const handlePressIn = () => {
+    scale.value = withSpring(0.97, {
+      damping: 15,
+      stiffness: 300,
+    });
+  };
+
+  const handlePressOut = () => {
+    scale.value = withSpring(1, {
+      damping: 15,
+      stiffness: 300,
+    });
   };
 
   return (
-    <Pressable
-      onPress={handlePress}
-      style={({ pressed }) => [
-        styles.container,
-        { backgroundColor: cardBackground, borderColor },
-        pressed && styles.pressed,
-      ]}
-    >
-      <View style={styles.content}>
+    <Animated.View style={[animatedStyle, styles.container]}>
+      <Pressable
+        onPress={onPress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        style={[
+          styles.card,
+          {
+            backgroundColor: cardBackground,
+            borderColor: borderColor,
+            shadowColor: shadowColor,
+          },
+        ]}
+      >
+        {/* Icon container with gradient background */}
         <View style={styles.iconContainer}>
-          <ThemedText style={styles.icon}>{game.icon}</ThemedText>
+          <LinearGradient
+            colors={[gradient1, gradient2]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.iconGradient}
+          >
+            {getGameIcon(game.id, 28, "#FFFFFF")}
+          </LinearGradient>
         </View>
+
+        {/* Game info */}
         <View style={styles.info}>
-          <ThemedText type="defaultSemiBold" style={styles.name}>
+          <ThemedText type="defaultSemiBold" style={styles.name} numberOfLines={1}>
             {game.name}
           </ThemedText>
-          <ThemedText style={styles.category}>{game.category}</ThemedText>
+          <ThemedText style={styles.category} numberOfLines={1}>
+            {game.category}
+          </ThemedText>
         </View>
+
+        {/* Badges */}
         <View style={styles.badges}>
           {game.currentStreak > 0 && (
-            <View style={[styles.badge, { backgroundColor: "#FF9500" }]}>
+            <View style={[styles.badge, styles.streakBadge]}>
               <ThemedText style={styles.badgeText}>🔥 {game.currentStreak}</ThemedText>
             </View>
           )}
@@ -52,40 +96,38 @@ export function GameCard({ game, onPress, isPlayedToday }: GameCardProps) {
             </View>
           )}
         </View>
-      </View>
-    </Pressable>
+      </Pressable>
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    borderRadius: 16,
-    borderWidth: 1,
     marginHorizontal: 16,
     marginVertical: 6,
-    overflow: "hidden",
   },
-  pressed: {
-    opacity: 0.9,
-    transform: [{ scale: 0.98 }],
-  },
-  content: {
+  card: {
     flexDirection: "row",
     alignItems: "center",
     padding: 16,
-    minHeight: 80,
+    borderRadius: 16,
+    borderWidth: 1,
+    // Shadow for iOS
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    // Elevation for Android
+    elevation: 3,
   },
   iconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    backgroundColor: "rgba(0, 122, 255, 0.1)",
+    marginRight: 16,
+  },
+  iconGradient: {
+    width: 56,
+    height: 56,
+    borderRadius: 14,
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 12,
-  },
-  icon: {
-    fontSize: 28,
   },
   info: {
     flex: 1,
@@ -103,18 +145,23 @@ const styles = StyleSheet.create({
   badges: {
     flexDirection: "row",
     gap: 8,
-    marginLeft: 8,
+    marginLeft: 12,
   },
   badge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
+    minWidth: 32,
+  },
+  streakBadge: {
+    backgroundColor: "#FF9500",
   },
   badgeText: {
     color: "#fff",
     fontSize: 12,
-    fontWeight: "bold",
+    fontWeight: "700",
+    lineHeight: 16,
   },
 });

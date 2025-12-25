@@ -16,6 +16,8 @@ import * as Haptics from "expo-haptics";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { IconSymbol } from "@/components/ui/icon-symbol";
+import { getGameIcon } from "@/components/ui/game-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { useGames, usePlayers, useScores } from "@/hooks/use-storage";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { Score } from "@/types";
@@ -35,9 +37,11 @@ export default function GameDetailScreen() {
   const insets = useSafeAreaInsets();
   const tintColor = useThemeColor({}, "tint");
   const backgroundColor = useThemeColor({}, "background");
-  const cardBackground = useThemeColor({ light: "#F2F2F7", dark: "#1C1C1E" }, "background");
-  const borderColor = useThemeColor({ light: "#E5E5EA", dark: "#38383A" }, "background");
+  const cardBackground = useThemeColor({}, "card");
+  const borderColor = useThemeColor({}, "cardBorder");
   const inputBackground = useThemeColor({ light: "#FFFFFF", dark: "#2C2C2E" }, "background");
+  const gradient1 = useThemeColor({}, "gradient1");
+  const gradient2 = useThemeColor({}, "gradient2");
 
   const game = games.find((g) => g.id === gameId);
 
@@ -171,7 +175,16 @@ export default function GameDetailScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.gameInfo}>
-          <ThemedText style={styles.gameIcon}>{game.icon}</ThemedText>
+          <View style={styles.gameIconContainer}>
+            <LinearGradient
+              colors={[gradient1, gradient2]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.gameIconGradient}
+            >
+              {getGameIcon(game.id, 48, "#FFFFFF")}
+            </LinearGradient>
+          </View>
           <ThemedText type="title" style={styles.gameName}>
             {game.name}
           </ThemedText>
@@ -398,10 +411,17 @@ const styles = StyleSheet.create({
   gameInfo: {
     alignItems: "center",
     gap: 8,
-    paddingVertical: 16,
+    paddingBottom: 24,
   },
-  gameIcon: {
-    fontSize: 64,
+  gameIconContainer: {
+    marginBottom: 16,
+  },
+  gameIconGradient: {
+    width: 96,
+    height: 96,
+    borderRadius: 24,
+    justifyContent: "center",
+    alignItems: "center",
   },
   gameName: {
     textAlign: "center",

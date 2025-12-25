@@ -23,7 +23,7 @@ export default function LeaderboardScreen() {
   const [timePeriod, setTimePeriod] = useState<TimePeriod>("all");
   const insets = useSafeAreaInsets();
   const tintColor = useThemeColor({}, "tint");
-  const cardBackground = useThemeColor({ light: "#F2F2F7", dark: "#1C1C1E" }, "background");
+  const cardBackground = useThemeColor({}, "card");
 
   const loading = scoresLoading || playersLoading || gamesLoading;
 

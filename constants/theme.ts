@@ -5,25 +5,44 @@
 
 import { Platform } from "react-native";
 
-const tintColorLight = "#0a7ea4";
-const tintColorDark = "#fff";
+// Modern sophisticated purple palette
+const tintColorLight = "#7C3AED"; // Deep purple
+const tintColorDark = "#A78BFA"; // Light purple
 
 export const Colors = {
   light: {
-    text: "#11181C",
-    background: "#fff",
+    text: "#1F2937", // Dark gray
+    background: "#FFFFFF", // Pure white
     tint: tintColorLight,
-    icon: "#687076",
-    tabIconDefault: "#687076",
+    icon: "#6B7280", // Medium gray
+    tabIconDefault: "#9CA3AF", // Light gray
     tabIconSelected: tintColorLight,
+    // Additional colors for modern UI
+    card: "#F9FAFB", // Off-white card background
+    cardBorder: "#E5E7EB", // Light border
+    success: "#10B981", // Green
+    warning: "#F59E0B", // Orange
+    error: "#EF4444", // Red
+    gradient1: "#7C3AED", // Purple
+    gradient2: "#A78BFA", // Light purple
+    shadow: "rgba(124, 58, 237, 0.1)", // Purple shadow
   },
   dark: {
-    text: "#ECEDEE",
-    background: "#151718",
+    text: "#F9FAFB", // Off-white
+    background: "#111827", // Dark background
     tint: tintColorDark,
-    icon: "#9BA1A6",
-    tabIconDefault: "#9BA1A6",
+    icon: "#9CA3AF", // Medium gray
+    tabIconDefault: "#6B7280", // Dark gray
     tabIconSelected: tintColorDark,
+    // Additional colors for modern UI
+    card: "#1F2937", // Dark card background
+    cardBorder: "#374151", // Dark border
+    success: "#34D399", // Light green
+    warning: "#FBBF24", // Light orange
+    error: "#F87171", // Light red
+    gradient1: "#A78BFA", // Light purple
+    gradient2: "#7C3AED", // Deep purple
+    shadow: "rgba(167, 139, 250, 0.15)", // Light purple shadow
   },
 };
 

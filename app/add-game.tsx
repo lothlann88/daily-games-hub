@@ -15,6 +15,8 @@ import * as Haptics from "expo-haptics";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { IconSymbol } from "@/components/ui/icon-symbol";
+import { getGameIcon } from "@/components/ui/game-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { useGames } from "@/hooks/use-storage";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { Game, GameCategory } from "@/types";
@@ -32,9 +34,11 @@ export default function AddGameScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const tintColor = useThemeColor({}, "tint");
-  const cardBackground = useThemeColor({ light: "#F2F2F7", dark: "#1C1C1E" }, "background");
-  const borderColor = useThemeColor({ light: "#E5E5EA", dark: "#38383A" }, "background");
+  const cardBackground = useThemeColor({}, "card");
+  const borderColor = useThemeColor({}, "cardBorder");
   const inputBackground = useThemeColor({ light: "#FFFFFF", dark: "#2C2C2E" }, "background");
+  const gradient1 = useThemeColor({}, "gradient1");
+  const gradient2 = useThemeColor({}, "gradient2");
 
   const handleClose = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -211,7 +215,14 @@ export default function AddGameScreen() {
           </ThemedText>
           <View style={[styles.previewCard, { borderColor }]}>
             <View style={styles.previewIconContainer}>
-              <ThemedText style={styles.previewIcon}>{icon}</ThemedText>
+              <LinearGradient
+                colors={[gradient1, gradient2]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.previewIconGradient}
+              >
+                <ThemedText style={styles.previewIcon}>{icon}</ThemedText>
+              </LinearGradient>
             </View>
             <View style={styles.previewInfo}>
               <ThemedText type="defaultSemiBold" style={styles.previewName}>
@@ -331,13 +342,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   previewIconContainer: {
+    marginRight: 12,
+  },
+  previewIconGradient: {
     width: 48,
     height: 48,
     borderRadius: 12,
-    backgroundColor: "rgba(0, 122, 255, 0.1)",
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 12,
   },
   previewIcon: {
     fontSize: 28,

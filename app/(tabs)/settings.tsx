@@ -22,8 +22,8 @@ export default function SettingsScreen() {
   const { preferences, loading: prefsLoading, updatePreferences } = usePreferences();
   const insets = useSafeAreaInsets();
   const tintColor = useThemeColor({}, "tint");
-  const cardBackground = useThemeColor({ light: "#F2F2F7", dark: "#1C1C1E" }, "background");
-  const borderColor = useThemeColor({ light: "#E5E5EA", dark: "#38383A" }, "background");
+  const cardBackground = useThemeColor({}, "card");
+  const borderColor = useThemeColor({}, "cardBorder");
 
   const loading = playersLoading || prefsLoading;
 
