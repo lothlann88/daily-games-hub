@@ -16,8 +16,7 @@ import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { GameCardEnhanced } from "@/components/game-card-enhanced";
-import { GameCard } from "@/components/game-card";
+import { GameCardSimple } from "@/components/game-card-simple";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useGames } from "@/hooks/use-storage";
 import { useThemeColor } from "@/hooks/use-theme-color";
@@ -128,7 +127,7 @@ export default function HomeScreen() {
   }, [games]);
 
   const renderGame = ({ item }: { item: Game }) => (
-    <GameCardEnhanced
+        <GameCardSimple
       game={item}
       onPress={() => handleGamePress(item)}
       onDelete={() => handleDeleteGame(item.id, item.name)}
