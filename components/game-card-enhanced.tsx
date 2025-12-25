@@ -21,8 +21,7 @@ interface GameCardEnhancedProps {
   onToggleFavorite?: () => void;
   isPlayedToday: boolean;
 }
-
-const SWIPE_THRESHOLD = 80;
+const SWIPE_THRESHOLD = 150; // Increased threshold for more deliberate swipes
 
 export function GameCardEnhanced({
   game,
@@ -61,8 +60,9 @@ export function GameCardEnhanced({
   };
 
   const panGesture = Gesture.Pan()
-    .activeOffsetX([-10, 10]) // Only activate on horizontal swipe
-    .failOffsetY([-10, 10]) // Fail if vertical movement detected
+    .activeOffsetX([-30, 30]) // Require significant horizontal movement (30px)
+    .failOffsetY([-15, 15]) // Fail quickly on vertical movement (15px)
+    .enableTrackpadTwoFingerGesture(false) // Disable trackpad gestures
     .onUpdate((event) => {
       translateX.value = event.translationX;
     })

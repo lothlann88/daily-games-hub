@@ -135,3 +135,5 @@
 
 ## Bug Fixes
 - [x] Fix scrolling issue - cannot scroll down in the app (fixed pan gesture to allow vertical scrolling)
+
+- [x] Fix scrolling to work everywhere - increased swipe thresholds (30px horizontal, 15px vertical) to prioritize scrolling
