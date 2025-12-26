@@ -142,4 +142,6 @@
 
 - [ ] Fix TLS error in Expo Go
 
-- [ ] Backup code to GitHub repository "daily-games"
+- [x] Backup code to GitHub repository "daily-games"
+
+- [ ] Create comprehensive README.md for GitHub repository
