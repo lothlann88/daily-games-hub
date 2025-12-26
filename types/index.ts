@@ -12,6 +12,7 @@ export interface Game {
   logoUrl?: string; // Fetched logo/favicon URL
   isFavorite: boolean;
   tags: string[]; // Tags like "Quick", "Challenging", "Logic", etc.
+  notes?: string; // Personal notes about the game (strategies, tips, best scores)
 }
 
 export interface Player {

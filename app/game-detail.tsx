@@ -19,6 +19,7 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { getGameIcon } from "@/components/ui/game-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { PlayCalendar } from "@/components/play-calendar";
+import { PersonalNotes } from "@/components/personal-notes";
 import { useGames, usePlayers, useScores } from "@/hooks/use-storage";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { Score } from "@/types";
@@ -233,6 +234,9 @@ export default function GameDetailScreen() {
             longestStreak={game.longestStreak}
           />
         </View>
+
+        {/* Personal Notes */}
+        <PersonalNotes gameId={game.id} />
 
         <View style={[styles.section, { backgroundColor: cardBackground }]}>
           <ThemedText type="subtitle" style={styles.sectionTitle}>

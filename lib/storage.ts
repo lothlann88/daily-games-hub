@@ -168,6 +168,7 @@ function getDefaultGames(): Game[] {
       playHistory: [],
       isFavorite: false,
       tags: [],
+      notes: "",
     },
     {
       id: "nyt-mini",
@@ -181,6 +182,7 @@ function getDefaultGames(): Game[] {
       playHistory: [],
       isFavorite: false,
       tags: [],
+      notes: "",
     },
     {
       id: "linkedin-queens",
@@ -194,6 +196,7 @@ function getDefaultGames(): Game[] {
       playHistory: [],
       isFavorite: false,
       tags: [],
+      notes: "",
     },
     {
       id: "linkedin-pinpoint",
@@ -207,6 +210,7 @@ function getDefaultGames(): Game[] {
       playHistory: [],
       isFavorite: false,
       tags: [],
+      notes: "",
     },
     {
       id: "connections",
@@ -220,6 +224,7 @@ function getDefaultGames(): Game[] {
       playHistory: [],
       isFavorite: false,
       tags: [],
+      notes: "",
     },
     {
       id: "spelling-bee",
@@ -233,6 +238,7 @@ function getDefaultGames(): Game[] {
       playHistory: [],
       isFavorite: false,
       tags: [],
+      notes: "",
     },
     {
       id: "sudoku",
@@ -246,6 +252,7 @@ function getDefaultGames(): Game[] {
       playHistory: [],
       isFavorite: false,
       tags: [],
+      notes: "",
     },
     {
       id: "guardian-mini",
@@ -259,6 +266,7 @@ function getDefaultGames(): Game[] {
       playHistory: [],
       isFavorite: false,
       tags: [],
+      notes: "",
     },
     {
       id: "geoguessr",
@@ -272,6 +280,7 @@ function getDefaultGames(): Game[] {
       playHistory: [],
       isFavorite: false,
       tags: [],
+      notes: "",
     },
     {
       id: "bandle",
@@ -285,6 +294,7 @@ function getDefaultGames(): Game[] {
       playHistory: [],
       isFavorite: false,
       tags: [],
+      notes: "",
     },
     {
       id: "reunion",
@@ -298,6 +308,7 @@ function getDefaultGames(): Game[] {
       playHistory: [],
       isFavorite: false,
       tags: [],
+      notes: "",
     },
     {
       id: "strands",
@@ -311,6 +322,7 @@ function getDefaultGames(): Game[] {
       playHistory: [],
       isFavorite: false,
       tags: [],
+      notes: "",
     },
     {
       id: "waffle",
@@ -324,6 +336,7 @@ function getDefaultGames(): Game[] {
       playHistory: [],
       isFavorite: false,
       tags: [],
+      notes: "",
     },
     {
       id: "phrazle",
@@ -337,6 +350,7 @@ function getDefaultGames(): Game[] {
       playHistory: [],
       isFavorite: false,
       tags: [],
+      notes: "",
     },
     {
       id: "nerdle",
@@ -350,6 +364,7 @@ function getDefaultGames(): Game[] {
       playHistory: [],
       isFavorite: false,
       tags: [],
+      notes: "",
     },
     {
       id: "heardle",
@@ -363,6 +378,7 @@ function getDefaultGames(): Game[] {
       playHistory: [],
       isFavorite: false,
       tags: [],
+      notes: "",
     },
     {
       id: "yeardle",
@@ -376,6 +392,7 @@ function getDefaultGames(): Game[] {
       playHistory: [],
       isFavorite: false,
       tags: [],
+      notes: "",
     },
     {
       id: "flagle",
@@ -389,6 +406,7 @@ function getDefaultGames(): Game[] {
       playHistory: [],
       isFavorite: false,
       tags: [],
+      notes: "",
     },
     {
       id: "murdle",
@@ -402,6 +420,7 @@ function getDefaultGames(): Game[] {
       playHistory: [],
       isFavorite: false,
       tags: [],
+      notes: "",
     },
     {
       id: "framed",
@@ -415,6 +434,7 @@ function getDefaultGames(): Game[] {
       playHistory: [],
       isFavorite: false,
       tags: [],
+      notes: "",
     },
     {
       id: "gamedle",
@@ -428,6 +448,7 @@ function getDefaultGames(): Game[] {
       playHistory: [],
       isFavorite: false,
       tags: [],
+      notes: "",
     },
     {
       id: "gamedle-artwork",
@@ -441,6 +462,7 @@ function getDefaultGames(): Game[] {
       playHistory: [],
       isFavorite: false,
       tags: [],
+      notes: "",
     },
     {
       id: "gamedle-classic",
@@ -454,6 +476,7 @@ function getDefaultGames(): Game[] {
       playHistory: [],
       isFavorite: false,
       tags: [],
+      notes: "",
     },
     {
       id: "gamedle-character",
@@ -467,6 +490,7 @@ function getDefaultGames(): Game[] {
       playHistory: [],
       isFavorite: false,
       tags: [],
+      notes: "",
     },
   ];
 }

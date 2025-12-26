@@ -169,3 +169,10 @@
 
 - [x] Rename header from "Daily Games" to "Daily Games Hub"
 - [x] Add app description/summary at top of homepage
+
+## Personal Notes Feature
+- [x] Add notes field to Game type
+- [x] Update storage to persist notes
+- [x] Add notes section to game detail screen
+- [x] Implement edit/save notes functionality
+- [x] Add placeholder text for empty notes
