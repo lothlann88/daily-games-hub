@@ -152,3 +152,5 @@
 - [x] Add Heardle
 - [x] Add Yeardle
 - [x] Add Flagle
+
+- [x] Add Murdle

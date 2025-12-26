@@ -372,6 +372,18 @@ function getDefaultGames(): Game[] {
       playHistory: [],
       isFavorite: false,
     },
+    {
+      id: "murdle",
+      name: "Murdle",
+      url: "https://murdle.com",
+      category: "Puzzles",
+      icon: "🔍",
+      dateAdded: Date.now(),
+      currentStreak: 0,
+      longestStreak: 0,
+      playHistory: [],
+      isFavorite: false,
+    },
   ];
 }
 
