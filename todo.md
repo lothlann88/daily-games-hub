@@ -176,3 +176,6 @@
 - [x] Add notes section to game detail screen
 - [x] Implement edit/save notes functionality
 - [x] Add placeholder text for empty notes
+
+- [x] Verify all 24 games are displaying on home screen (all 24 games present in storage)
+- [x] Check default games list in storage.ts (confirmed all games are there)
