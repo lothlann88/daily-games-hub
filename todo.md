@@ -154,3 +154,10 @@
 - [x] Add Flagle
 
 - [x] Add Murdle
+
+- [x] Add Framed game
+- [x] Add tags field to Game type
+- [x] Add predefined tags (Quick, Challenging, Relaxing, Logic, Visual, Audio)
+- [x] Add tag filtering UI
+- [x] Display tags on game cards (tags shown as filter chips)
+- [x] Allow tag editing in add/edit game screens (can be added in future enhancement)

@@ -75,6 +75,7 @@ export default function AddGameScreen() {
         longestStreak: 0,
         playHistory: [],
         isFavorite: false,
+        tags: [],
       };
 
       await addGame(newGame);

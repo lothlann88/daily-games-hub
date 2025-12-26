@@ -22,7 +22,8 @@ import { useGames } from "@/hooks/use-storage";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { wasPlayedToday } from "@/lib/streaks";
 import { fetchGameLogo } from "@/lib/logo-fetcher";
-import { Game, GameCategory } from "@/types";
+import { Game, GameCategory, GameTag } from "@/types";
+import { AVAILABLE_TAGS } from "@/constants/tags";
 
 const CATEGORIES: Array<GameCategory | "All"> = ["All", "Word Games", "Puzzles", "Strategy", "Trivia"];
 
@@ -31,6 +32,7 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<GameCategory | "All">("All");
+  const [selectedTags, setSelectedTags] = useState<GameTag[]>([]);
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const tintColor = useThemeColor({}, "tint");
@@ -104,6 +106,13 @@ export default function HomeScreen() {
       filtered = filtered.filter((game) => game.category === selectedCategory);
     }
 
+    // Apply tag filter
+    if (selectedTags.length > 0) {
+      filtered = filtered.filter((game) =>
+        selectedTags.every((tag) => game.tags.includes(tag))
+      );
+    }
+
     // Apply search filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
@@ -120,7 +129,7 @@ export default function HomeScreen() {
       if (!a.isFavorite && b.isFavorite) return 1;
       return a.name.localeCompare(b.name);
     });
-  }, [games, selectedCategory, searchQuery]);
+  }, [games, selectedCategory, selectedTags, searchQuery]);
 
   const favoriteGames = useMemo(() => {
     return games.filter((game) => game.isFavorite);
@@ -185,10 +194,8 @@ export default function HomeScreen() {
           >
             <ThemedText
               style={[
-                styles.categoryText,
-                {
-                  color: selectedCategory === category ? "#FFFFFF" : useThemeColor({}, "text"),
-                },
+                styles.categoryChipText,
+                { color: selectedCategory === category ? "#fff" : tintColor },
               ]}
             >
               {category}
@@ -196,6 +203,48 @@ export default function HomeScreen() {
           </Pressable>
         ))}
       </ScrollView>
+
+      {/* Tag Filters */}
+      {AVAILABLE_TAGS.length > 0 && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.tagsContainer}
+        >
+          {AVAILABLE_TAGS.map((tag) => {
+            const isSelected = selectedTags.includes(tag);
+            return (
+              <Pressable
+                key={tag}
+                onPress={() => {
+                  setSelectedTags((prev) =>
+                    isSelected
+                      ? prev.filter((t) => t !== tag)
+                      : [...prev, tag]
+                  );
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                }}
+                style={[
+                  styles.tagChip,
+                  {
+                    backgroundColor: isSelected ? tintColor : cardBackground,
+                    borderColor: isSelected ? tintColor : borderColor,
+                  },
+                ]}
+              >
+                <ThemedText
+                  style={[
+                    styles.tagChipText,
+                    { color: isSelected ? "#fff" : tintColor },
+                  ]}
+                >
+                  {tag}
+                </ThemedText>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      )}
     </View>
   );
 
@@ -310,6 +359,25 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
+  },
+  categoryChipText: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  tagsContainer: {
+    gap: 8,
+    paddingVertical: 4,
+    paddingBottom: 8,
+  },
+  tagChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  tagChipText: {
+    fontSize: 12,
+    fontWeight: "500",
   },
   categoryText: {
     fontSize: 14,

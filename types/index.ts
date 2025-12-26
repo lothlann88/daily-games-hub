@@ -11,6 +11,7 @@ export interface Game {
   playHistory: number[]; // Array of timestamps when game was played
   logoUrl?: string; // Fetched logo/favicon URL
   isFavorite: boolean;
+  tags: string[]; // Tags like "Quick", "Challenging", "Logic", etc.
 }
 
 export interface Player {
@@ -36,3 +37,5 @@ export interface Preferences {
 }
 
 export type GameCategory = "Word Games" | "Puzzles" | "Strategy" | "Trivia" | "Other";
+
+export type GameTag = "Quick" | "Challenging" | "Relaxing" | "Logic" | "Visual" | "Audio" | "Math" | "Geography" | "Music" | "Movies";

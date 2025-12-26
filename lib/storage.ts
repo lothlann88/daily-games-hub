@@ -167,6 +167,7 @@ function getDefaultGames(): Game[] {
       longestStreak: 0,
       playHistory: [],
       isFavorite: false,
+      tags: [],
     },
     {
       id: "nyt-mini",
@@ -179,6 +180,7 @@ function getDefaultGames(): Game[] {
       longestStreak: 0,
       playHistory: [],
       isFavorite: false,
+      tags: [],
     },
     {
       id: "linkedin-queens",
@@ -191,6 +193,7 @@ function getDefaultGames(): Game[] {
       longestStreak: 0,
       playHistory: [],
       isFavorite: false,
+      tags: [],
     },
     {
       id: "linkedin-pinpoint",
@@ -203,6 +206,7 @@ function getDefaultGames(): Game[] {
       longestStreak: 0,
       playHistory: [],
       isFavorite: false,
+      tags: [],
     },
     {
       id: "connections",
@@ -215,6 +219,7 @@ function getDefaultGames(): Game[] {
       longestStreak: 0,
       playHistory: [],
       isFavorite: false,
+      tags: [],
     },
     {
       id: "spelling-bee",
@@ -227,6 +232,7 @@ function getDefaultGames(): Game[] {
       longestStreak: 0,
       playHistory: [],
       isFavorite: false,
+      tags: [],
     },
     {
       id: "sudoku",
@@ -239,6 +245,7 @@ function getDefaultGames(): Game[] {
       longestStreak: 0,
       playHistory: [],
       isFavorite: false,
+      tags: [],
     },
     {
       id: "guardian-mini",
@@ -251,6 +258,7 @@ function getDefaultGames(): Game[] {
       longestStreak: 0,
       playHistory: [],
       isFavorite: false,
+      tags: [],
     },
     {
       id: "geoguessr",
@@ -263,6 +271,7 @@ function getDefaultGames(): Game[] {
       longestStreak: 0,
       playHistory: [],
       isFavorite: false,
+      tags: [],
     },
     {
       id: "bandle",
@@ -275,6 +284,7 @@ function getDefaultGames(): Game[] {
       longestStreak: 0,
       playHistory: [],
       isFavorite: false,
+      tags: [],
     },
     {
       id: "reunion",
@@ -287,6 +297,7 @@ function getDefaultGames(): Game[] {
       longestStreak: 0,
       playHistory: [],
       isFavorite: false,
+      tags: [],
     },
     {
       id: "strands",
@@ -299,6 +310,7 @@ function getDefaultGames(): Game[] {
       longestStreak: 0,
       playHistory: [],
       isFavorite: false,
+      tags: [],
     },
     {
       id: "waffle",
@@ -311,6 +323,7 @@ function getDefaultGames(): Game[] {
       longestStreak: 0,
       playHistory: [],
       isFavorite: false,
+      tags: [],
     },
     {
       id: "phrazle",
@@ -323,6 +336,7 @@ function getDefaultGames(): Game[] {
       longestStreak: 0,
       playHistory: [],
       isFavorite: false,
+      tags: [],
     },
     {
       id: "nerdle",
@@ -335,6 +349,7 @@ function getDefaultGames(): Game[] {
       longestStreak: 0,
       playHistory: [],
       isFavorite: false,
+      tags: [],
     },
     {
       id: "heardle",
@@ -347,6 +362,7 @@ function getDefaultGames(): Game[] {
       longestStreak: 0,
       playHistory: [],
       isFavorite: false,
+      tags: [],
     },
     {
       id: "yeardle",
@@ -359,6 +375,7 @@ function getDefaultGames(): Game[] {
       longestStreak: 0,
       playHistory: [],
       isFavorite: false,
+      tags: [],
     },
     {
       id: "flagle",
@@ -371,6 +388,7 @@ function getDefaultGames(): Game[] {
       longestStreak: 0,
       playHistory: [],
       isFavorite: false,
+      tags: [],
     },
     {
       id: "murdle",
@@ -383,6 +401,20 @@ function getDefaultGames(): Game[] {
       longestStreak: 0,
       playHistory: [],
       isFavorite: false,
+      tags: [],
+    },
+    {
+      id: "framed",
+      name: "Framed",
+      url: "https://framed.wtf",
+      category: "Trivia",
+      icon: "🎬",
+      dateAdded: Date.now(),
+      currentStreak: 0,
+      longestStreak: 0,
+      playHistory: [],
+      isFavorite: false,
+      tags: [],
     },
   ];
 }
