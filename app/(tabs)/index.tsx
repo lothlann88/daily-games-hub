@@ -147,7 +147,10 @@ export default function HomeScreen() {
 
   const renderHeader = () => (
     <View style={styles.header}>
-      <ThemedText type="title">Daily Games</ThemedText>
+      <ThemedText type="title">Daily Games Hub</ThemedText>
+      <ThemedText style={styles.description}>
+        Your central hub for daily puzzle games. Track scores, build streaks, and compete with friends across 24+ games.
+      </ThemedText>
       <ThemedText style={styles.subtitle}>
         {filteredGames.length} {filteredGames.length === 1 ? "game" : "games"}
         {favoriteGames.length > 0 && ` · ${favoriteGames.length} ⭐`}
@@ -330,10 +333,17 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
     gap: 12,
   },
+  description: {
+    fontSize: 15,
+    lineHeight: 22,
+    opacity: 0.7,
+    marginTop: 4,
+  },
   subtitle: {
     fontSize: 14,
     lineHeight: 20,
     opacity: 0.6,
+    marginTop: 8,
   },
   searchContainer: {
     flexDirection: "row",

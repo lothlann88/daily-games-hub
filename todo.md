@@ -166,3 +166,6 @@
 - [x] Add Gamedle Artwork
 - [x] Add Gamedle Classic
 - [x] Add Gamedle Character
+
+- [x] Rename header from "Daily Games" to "Daily Games Hub"
+- [x] Add app description/summary at top of homepage
