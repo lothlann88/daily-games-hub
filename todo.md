@@ -139,3 +139,7 @@
 - [x] Fix scrolling to work everywhere - increased swipe thresholds (30px horizontal, 15px vertical) to prioritize scrolling
 
 - [x] Replace swipe gestures with long-press menu for better scrolling
+
+- [ ] Fix TLS error in Expo Go
+
+- [ ] Backup code to GitHub repository "daily-games"
