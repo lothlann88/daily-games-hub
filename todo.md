@@ -144,4 +144,11 @@
 
 - [x] Backup code to GitHub repository "daily-games"
 
-- [ ] Create comprehensive README.md for GitHub repository
+- [x] Create comprehensive README.md for GitHub repository
+
+## Add More Games
+- [x] Add Phrazle
+- [x] Add Nerdle
+- [x] Add Heardle
+- [x] Add Yeardle
+- [x] Add Flagle
