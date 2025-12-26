@@ -161,3 +161,8 @@
 - [x] Add tag filtering UI
 - [x] Display tags on game cards (tags shown as filter chips)
 - [x] Allow tag editing in add/edit game screens (can be added in future enhancement)
+
+- [x] Add Gamedle
+- [x] Add Gamedle Artwork
+- [x] Add Gamedle Classic
+- [x] Add Gamedle Character
