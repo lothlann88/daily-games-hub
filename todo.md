@@ -278,3 +278,14 @@
 - [x] Show username in search results prominently
 - [x] Test username search functionality
 - [x] Create checkpoint for username search feature
+
+## PWA Configuration
+- [x] Add web manifest.json with PWA metadata
+- [x] Add iOS-specific meta tags for Add to Home Screen
+- [x] Optimize app icons for PWA (192x192, 512x512)
+- [x] Create +html.tsx with PWA meta tags
+- [x] Configure Vercel deployment settings
+- [x] Create vercel.json configuration
+- [x] Create comprehensive deployment guide
+- [x] Document Add to Home Screen instructions
+- [x] Create checkpoint for PWA configuration
