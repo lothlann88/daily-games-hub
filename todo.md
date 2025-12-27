@@ -271,3 +271,10 @@
 - [x] Test username creation and updates
 - [x] Test username uniqueness validation
 - [x] Create checkpoint for username system
+
+## Username-Based Friend Search
+- [x] Update add friend screen to support @username search
+- [x] Add instant lookup for exact username matches
+- [x] Show username in search results prominently
+- [x] Test username search functionality
+- [x] Create checkpoint for username search feature

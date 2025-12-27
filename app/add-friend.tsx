@@ -43,8 +43,65 @@ export default function AddFriendScreen() {
 
     try {
       setSearching(true);
-      const results = await friendsLib.searchUsers(query);
-      setSearchResults(results);
+      
+      // Check if query starts with @ for username search
+      const isUsernameSearch = query.trim().startsWith("@");
+      const searchTerm = isUsernameSearch ? query.trim().substring(1) : query.trim();
+      
+      if (isUsernameSearch && searchTerm.length > 0) {
+        // Exact username lookup
+        const { supabase } = await import("@/lib/supabase");
+        const { data: users, error } = await supabase
+          .from("user_profiles")
+          .select("id, name, username, avatar_url, is_private")
+          .eq("username", searchTerm.toLowerCase())
+          .limit(1);
+
+        if (error) throw error;
+
+        if (users && users.length > 0) {
+          // Check friendship status for the found user
+          const userWithStatus = await Promise.all(
+            users.map(async (user) => {
+              const isFriend = await friendsLib.checkAreFriends(user.id);
+              
+              // Check for pending requests
+              const { data: pendingRequests } = await supabase
+                .from("friend_requests")
+                .select("*")
+                .eq("status", "pending")
+                .or(`and(sender_id.eq.${user.id},receiver_id.eq.${(await supabase.auth.getUser()).data.user?.id}),and(sender_id.eq.${(await supabase.auth.getUser()).data.user?.id},receiver_id.eq.${user.id})`);
+              
+              const pendingRequest = pendingRequests?.[0];
+              const currentUserId = (await supabase.auth.getUser()).data.user?.id;
+              const requestDirection: "sent" | "received" | undefined = pendingRequest
+                ? pendingRequest.sender_id === currentUserId
+                  ? "sent"
+                  : "received"
+                : undefined;
+              
+              return {
+                id: user.id,
+                name: user.name,
+                username: user.username,
+                avatar_url: user.avatar_url,
+                is_private: user.is_private,
+                is_friend: isFriend,
+                has_pending_request: !!pendingRequest,
+                request_direction: requestDirection,
+              };
+            })
+          );
+          
+          setSearchResults(userWithStatus);
+        } else {
+          setSearchResults([]);
+        }
+      } else {
+        // Regular name-based search
+        const results = await friendsLib.searchUsers(searchTerm);
+        setSearchResults(results);
+      }
     } catch (error) {
       console.error("Error searching users:", error);
       Alert.alert("Error", "Failed to search users");
@@ -172,7 +229,7 @@ export default function AddFriendScreen() {
           <IconSymbol name="magnifyingglass" size={20} color={tintColor} />
           <TextInput
             style={[styles.searchInput, { color: useThemeColor({}, "text") }]}
-            placeholder="Search by name or username..."
+            placeholder="Search by name or @username..."
             placeholderTextColor={useThemeColor({ light: "#9CA3AF", dark: "#6B7280" }, "icon")}
             value={searchQuery}
             onChangeText={handleSearch}
@@ -188,7 +245,7 @@ export default function AddFriendScreen() {
           )}
         </View>
         <ThemedText style={styles.searchHint}>
-          Search for friends by their name or username
+          Search by name or use @username for instant lookup
         </ThemedText>
       </View>
 
