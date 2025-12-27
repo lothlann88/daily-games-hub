@@ -11,7 +11,9 @@ import { UserProfile } from "@/types";
 
 export default function OnboardingScreen() {
   const [name, setName] = useState("");
+  const [username, setUsername] = useState("");
   const [loading, setLoading] = useState(false);
+  const [usernameError, setUsernameError] = useState("");
   const { saveProfile } = useUserProfile();
   const router = useRouter();
   
@@ -25,11 +27,41 @@ export default function OnboardingScreen() {
       return;
     }
 
+    // Validate username if provided
+    if (username.trim()) {
+      const usernameValue = username.trim().toLowerCase();
+      if (!/^[a-z0-9_]{3,20}$/.test(usernameValue)) {
+        setUsernameError("Username must be 3-20 characters (letters, numbers, underscores only)");
+        return;
+      }
+
+      // Check username availability
+      try {
+        const { supabase } = await import("@/lib/supabase");
+        const { data: existing } = await supabase
+          .from("user_profiles")
+          .select("id")
+          .eq("username", usernameValue)
+          .single();
+
+        if (existing) {
+          setUsernameError("This username is already taken");
+          return;
+        }
+      } catch (error: any) {
+        // PGRST116 means no rows found, which is what we want
+        if (error?.code !== "PGRST116") {
+          console.error("Error checking username:", error);
+        }
+      }
+    }
+
     setLoading(true);
     try {
       const profile: UserProfile = {
         id: `user-${Date.now()}`,
         name: name.trim(),
+        username: username.trim() ? username.trim().toLowerCase() : undefined,
         createdAt: Date.now(),
       };
 
@@ -63,20 +95,52 @@ export default function OnboardingScreen() {
         </View>
 
         <View style={styles.form}>
-          <ThemedText type="subtitle" style={styles.label}>
-            What's your name?
-          </ThemedText>
-          <TextInput
-            style={[styles.input, { backgroundColor: inputBg, borderColor, color: primary }]}
-            placeholder="Enter your name"
-            placeholderTextColor="#999"
-            value={name}
-            onChangeText={setName}
-            autoFocus
-            autoCapitalize="words"
-            returnKeyType="done"
-            onSubmitEditing={handleContinue}
-          />
+          <View style={styles.formGroup}>
+            <ThemedText type="subtitle" style={styles.label}>
+              What's your name?
+            </ThemedText>
+            <TextInput
+              style={[styles.input, { backgroundColor: inputBg, borderColor, color: primary }]}
+              placeholder="Enter your name"
+              placeholderTextColor="#999"
+              value={name}
+              onChangeText={setName}
+              autoFocus
+              autoCapitalize="words"
+              returnKeyType="next"
+            />
+          </View>
+
+          <View style={styles.formGroup}>
+            <ThemedText type="subtitle" style={styles.label}>
+              Choose a username (optional)
+            </ThemedText>
+            <TextInput
+              style={[
+                styles.input,
+                { backgroundColor: inputBg, borderColor, color: primary },
+                usernameError && styles.inputError,
+              ]}
+              placeholder="username (3-20 characters)"
+              placeholderTextColor="#999"
+              value={username}
+              onChangeText={(text) => {
+                setUsername(text);
+                setUsernameError("");
+              }}
+              autoCapitalize="none"
+              autoCorrect={false}
+              returnKeyType="done"
+              onSubmitEditing={handleContinue}
+            />
+            {usernameError ? (
+              <ThemedText style={styles.errorText}>{usernameError}</ThemedText>
+            ) : (
+              <ThemedText style={styles.hintText}>
+                Your username helps friends find you easily
+              </ThemedText>
+            )}
+          </View>
         </View>
 
         <Pressable
@@ -123,6 +187,9 @@ const styles = StyleSheet.create({
   form: {
     marginBottom: 32,
   },
+  formGroup: {
+    marginBottom: 24,
+  },
   label: {
     marginBottom: 12,
   },
@@ -132,6 +199,22 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     paddingHorizontal: 16,
     fontSize: 18,
+  },
+  inputError: {
+    borderColor: "#FF3B30",
+    borderWidth: 2,
+  },
+  hintText: {
+    fontSize: 14,
+    lineHeight: 20,
+    opacity: 0.6,
+    marginTop: 8,
+  },
+  errorText: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: "#FF3B30",
+    marginTop: 8,
   },
   button: {
     height: 56,

@@ -35,6 +35,7 @@ export default function SettingsScreen() {
 
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
+  const [checkingUsername, setCheckingUsername] = useState(false);
 
   useEffect(() => {
     loadUserProfile();
@@ -117,6 +118,76 @@ export default function SettingsScreen() {
       ],
       "plain-text",
       userProfile?.name || ""
+    );
+  };
+
+  const handleEditUsername = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Alert.prompt(
+      "Set Username",
+      "Choose a unique username (3-20 characters, letters, numbers, underscores only)",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Save",
+          onPress: async (newUsername?: string) => {
+            if (!newUsername || !newUsername.trim()) {
+              return;
+            }
+
+            const username = newUsername.trim().toLowerCase();
+
+            // Validate format
+            if (!/^[a-z0-9_]{3,20}$/.test(username)) {
+              Alert.alert(
+                "Invalid Username",
+                "Username must be 3-20 characters and contain only letters, numbers, and underscores."
+              );
+              return;
+            }
+
+            try {
+              setCheckingUsername(true);
+              
+              // Check if username is available (using Supabase)
+              const { supabase } = await import("@/lib/supabase");
+              const { data: existing } = await supabase
+                .from("user_profiles")
+                .select("id")
+                .eq("username", username)
+                .neq("id", user?.id || "")
+                .single();
+
+              if (existing) {
+                Alert.alert("Username Taken", "This username is already in use. Please choose another.");
+                return;
+              }
+
+              // Update username
+              await updateUserProfile({ username });
+              
+              // Also update in Supabase
+              if (user) {
+                await supabase
+                  .from("user_profiles")
+                  .update({ username })
+                  .eq("id", user.id);
+              }
+
+              await loadUserProfile();
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              Alert.alert("Success", `Your username is now @${username}`);
+            } catch (error) {
+              console.error("Error updating username:", error);
+              Alert.alert("Error", "Failed to update username. Please try again.");
+            } finally {
+              setCheckingUsername(false);
+            }
+          },
+        },
+      ],
+      "plain-text",
+      userProfile?.username || ""
     );
   };
 
@@ -230,6 +301,27 @@ export default function SettingsScreen() {
               </View>
             </View>
             <ThemedText style={styles.settingRowRight}>Edit</ThemedText>
+          </Pressable>
+          <Pressable
+            onPress={handleEditUsername}
+            disabled={checkingUsername}
+            style={[styles.settingRow, { backgroundColor: cardBackground, borderColor }]}
+          >
+            <View style={styles.settingRowLeft}>
+              <View style={{ flex: 1 }}>
+                <ThemedText type="defaultSemiBold">Username</ThemedText>
+                <ThemedText style={styles.settingDescription}>
+                  {userProfile?.username ? `@${userProfile.username}` : "Set a unique username"}
+                </ThemedText>
+              </View>
+            </View>
+            {checkingUsername ? (
+              <ActivityIndicator size="small" color={tintColor} />
+            ) : (
+              <ThemedText style={styles.settingRowRight}>
+                {userProfile?.username ? "Edit" : "Set"}
+              </ThemedText>
+            )}
           </Pressable>
         </View>
 

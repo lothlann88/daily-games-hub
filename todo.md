@@ -257,3 +257,17 @@
 - [x] Test friend list and removal
 - [x] Test score comparison
 - [x] Create Phase 3 checkpoint
+
+## Username System
+- [x] Add username input field to settings screen
+- [x] Implement username validation (format, length, uniqueness)
+- [x] Create username update function in storage/API
+- [x] Add username availability check
+- [x] Add username field to UserProfile type
+- [x] Update onboarding screen to include optional username
+- [x] Display usernames in friend list
+- [x] Display usernames in friend requests
+- [x] Display usernames in search results
+- [x] Test username creation and updates
+- [x] Test username uniqueness validation
+- [x] Create checkpoint for username system

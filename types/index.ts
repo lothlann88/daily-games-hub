@@ -18,6 +18,7 @@ export interface Game {
 export interface UserProfile {
   id: string;
   name: string;
+  username?: string;
   avatar?: string;
   avatarUrl?: string;
   isPrivate?: boolean;
