@@ -20,6 +20,7 @@ import { GameCardSimple } from "@/components/game-card-simple";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useGames, useScores } from "@/hooks/use-storage";
 import { useThemeColor } from "@/hooks/use-theme-color";
+import { useAuth } from "@/contexts/auth-context";
 import { wasPlayedToday } from "@/lib/streaks";
 import { fetchGameLogo } from "@/lib/logo-fetcher";
 import { getUserProfile } from "@/lib/storage";
@@ -31,6 +32,7 @@ const CATEGORIES: Array<GameCategory | "All"> = ["All", "Word Games", "Puzzles",
 export default function HomeScreen() {
   const { games, loading, refresh, updateGame, deleteGame } = useGames();
   const { scores } = useScores();
+  const { syncing, lastSyncTime } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<GameCategory | "All">("All");
@@ -177,14 +179,29 @@ export default function HomeScreen() {
       {/* Welcome Message */}
       {userProfile && (
         <View style={[styles.welcomeCard, { backgroundColor: cardBackground, borderColor }]}>
-          <ThemedText type="subtitle" style={styles.welcomeGreeting}>
-            {getGreeting()}, {userProfile.name}! 👋
-          </ThemedText>
-          <ThemedText style={styles.welcomeStats}>
-            {gamesPlayedToday > 0 
-              ? `You've played ${gamesPlayedToday} ${gamesPlayedToday === 1 ? 'game' : 'games'} today`
-              : "Ready to play some games today?"}
-          </ThemedText>
+          <View style={styles.welcomeHeader}>
+            <View style={{ flex: 1 }}>
+              <ThemedText type="subtitle" style={styles.welcomeGreeting}>
+                {getGreeting()}, {userProfile.name}! 👋
+              </ThemedText>
+              <ThemedText style={styles.welcomeStats}>
+                {gamesPlayedToday > 0 
+                  ? `You've played ${gamesPlayedToday} ${gamesPlayedToday === 1 ? 'game' : 'games'} today`
+                  : "Ready to play some games today?"}
+              </ThemedText>
+            </View>
+            {syncing && (
+              <View style={styles.syncIndicator}>
+                <ActivityIndicator size="small" color={tintColor} />
+                <ThemedText style={styles.syncText}>Syncing...</ThemedText>
+              </View>
+            )}
+            {!syncing && lastSyncTime && (
+              <ThemedText style={styles.syncText}>
+                ✓ Synced
+              </ThemedText>
+            )}
+          </View>
         </View>
       )}
 
@@ -387,6 +404,20 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     opacity: 0.7,
+  },
+  welcomeHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  syncIndicator: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  syncText: {
+    fontSize: 12,
+    opacity: 0.6,
   },
   mainTitle: {
     marginTop: 8,

@@ -20,11 +20,13 @@ import * as notificationLib from "@/lib/notifications";
 import * as dataTransfer from "@/lib/data-transfer";
 import { getUserProfile, updateUserProfile } from "@/lib/storage";
 import { UserProfile } from "@/types";
+import { useAuth } from "@/contexts/auth-context";
 
 export default function SettingsScreen() {
   const { preferences, loading: prefsLoading, updatePreferences } = usePreferences();
   const { refresh: refreshGames } = useGames();
   const { refresh: refreshScores } = useScores();
+  const { user, signOut } = useAuth();
   const insets = useSafeAreaInsets();
   const tintColor = useThemeColor({}, "tint");
   const cardBackground = useThemeColor({}, "card");
@@ -293,6 +295,44 @@ export default function SettingsScreen() {
               </ThemedText>
             </View>
             <ThemedText style={{ color: tintColor }}>Import</ThemedText>
+          </Pressable>
+        </View>
+
+        {/* Account Section */}
+        <View style={styles.section}>
+          <ThemedText type="subtitle" style={styles.sectionTitle}>
+            Account
+          </ThemedText>
+          <View style={[styles.settingRow, { backgroundColor: cardBackground, borderColor }]}>
+            <View style={styles.settingRowLeft}>
+              <ThemedText>Email</ThemedText>
+              <ThemedText style={styles.settingDescription}>
+                {user?.email || "Not signed in"}
+              </ThemedText>
+            </View>
+          </View>
+          <Pressable
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              Alert.alert(
+                "Sign Out",
+                "Are you sure you want to sign out? Your data is safely synced to the cloud.",
+                [
+                  { text: "Cancel", style: "cancel" },
+                  {
+                    text: "Sign Out",
+                    style: "destructive",
+                    onPress: async () => {
+                      await signOut();
+                      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                    },
+                  },
+                ]
+              );
+            }}
+            style={[styles.settingRow, { backgroundColor: cardBackground, borderColor }]}
+          >
+            <ThemedText style={{ color: "#FF3B30" }}>Sign Out</ThemedText>
           </Pressable>
         </View>
 

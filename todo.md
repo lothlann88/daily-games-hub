@@ -224,3 +224,15 @@
 - [ ] Test data sync and conflict resolution
 - [ ] Update settings screen with account management
 - [ ] Create checkpoint for Phase 2 completion
+
+## Phase 2 Integration (Final Steps)
+- [x] Add logout button to settings screen
+- [x] Add account management section to settings
+- [x] Trigger data sync after successful login
+- [x] Add sync on app start for returning users
+- [x] Add loading indicators during sync operations
+- [x] Show sync status (syncing, synced, offline)
+- [x] Test registration flow end-to-end
+- [x] Test login flow with data sync
+- [x] Test logout and re-login
+- [x] Create final Phase 2 checkpoint
