@@ -18,21 +18,24 @@ import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { GameCardSimple } from "@/components/game-card-simple";
 import { IconSymbol } from "@/components/ui/icon-symbol";
-import { useGames } from "@/hooks/use-storage";
+import { useGames, useScores } from "@/hooks/use-storage";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { wasPlayedToday } from "@/lib/streaks";
 import { fetchGameLogo } from "@/lib/logo-fetcher";
-import { Game, GameCategory, GameTag } from "@/types";
+import { getUserProfile } from "@/lib/storage";
+import { Game, GameCategory, GameTag, UserProfile } from "@/types";
 import { AVAILABLE_TAGS } from "@/constants/tags";
 
 const CATEGORIES: Array<GameCategory | "All"> = ["All", "Word Games", "Puzzles", "Strategy", "Trivia"];
 
 export default function HomeScreen() {
   const { games, loading, refresh, updateGame, deleteGame } = useGames();
+  const { scores } = useScores();
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<GameCategory | "All">("All");
   const [selectedTags, setSelectedTags] = useState<GameTag[]>([]);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const tintColor = useThemeColor({}, "tint");
@@ -40,6 +43,15 @@ export default function HomeScreen() {
   const cardBackground = useThemeColor({}, "card");
   const borderColor = useThemeColor({}, "cardBorder");
   const inputBackground = useThemeColor({ light: "#F9FAFB", dark: "#374151" }, "card");
+
+  // Load user profile
+  useEffect(() => {
+    const loadProfile = async () => {
+      const profile = await getUserProfile();
+      setUserProfile(profile);
+    };
+    loadProfile();
+  }, []);
 
   // Fetch logos for games that don't have them
   useEffect(() => {
@@ -145,9 +157,38 @@ export default function HomeScreen() {
     />
   );
 
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Good morning";
+    if (hour < 18) return "Good afternoon";
+    return "Good evening";
+  };
+
+  const gamesPlayedToday = useMemo(() => {
+    const today = new Date().toDateString();
+    return games.filter(game => {
+      const lastPlayed = game.playHistory?.[game.playHistory.length - 1];
+      return lastPlayed && new Date(lastPlayed).toDateString() === today;
+    }).length;
+  }, [games]);
+
   const renderHeader = () => (
     <View style={styles.header}>
-      <ThemedText type="title">Daily Games Hub</ThemedText>
+      {/* Welcome Message */}
+      {userProfile && (
+        <View style={[styles.welcomeCard, { backgroundColor: cardBackground, borderColor }]}>
+          <ThemedText type="subtitle" style={styles.welcomeGreeting}>
+            {getGreeting()}, {userProfile.name}! 👋
+          </ThemedText>
+          <ThemedText style={styles.welcomeStats}>
+            {gamesPlayedToday > 0 
+              ? `You've played ${gamesPlayedToday} ${gamesPlayedToday === 1 ? 'game' : 'games'} today`
+              : "Ready to play some games today?"}
+          </ThemedText>
+        </View>
+      )}
+
+      <ThemedText type="title" style={styles.mainTitle}>Daily Games Hub</ThemedText>
       <ThemedText style={styles.description}>
         Your central hub for daily puzzle games. Track scores, build streaks, and compete with friends across 24+ games.
       </ThemedText>
@@ -332,6 +373,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 16,
     gap: 12,
+  },
+  welcomeCard: {
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 8,
+  },
+  welcomeGreeting: {
+    marginBottom: 4,
+  },
+  welcomeStats: {
+    fontSize: 14,
+    lineHeight: 20,
+    opacity: 0.7,
+  },
+  mainTitle: {
+    marginTop: 8,
   },
   description: {
     fontSize: 15,

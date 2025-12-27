@@ -190,5 +190,37 @@
 - [x] Update settings screen to user profile management
 - [x] Update tab navigation labels (Leaderboard → Stats)
 - [x] Update remaining UI text from "players" to "you/your"
-- [ ] Test complete onboarding → game playing → stats flow
-- [ ] Create checkpoint for Phase 1 completion
+- [x] Test complete onboarding → game playing → stats flow
+- [x] Create checkpoint for Phase 1 completion
+
+## Welcome Message Feature
+- [x] Add welcome message component to home screen
+- [x] Display user name from profile
+- [x] Show daily stats (games played today)
+- [x] Add greeting based on time of day
+
+## Phase 2: Authentication & Backend Integration
+- [x] Create PHASE2_PLAN.md document
+- [x] Choose backend solution (Supabase selected)
+- [x] Install Supabase client library
+- [x] Configure Supabase credentials
+- [x] Design cloud database schema
+- [x] Create SQL migration script
+- [x] Run database migration in Supabase
+- [x] Set up authentication system (email/password)
+- [x] Create migration strategy from AsyncStorage to cloud
+- [x] Implement user registration flow
+- [x] Implement login flow
+- [x] Implement forgot password flow
+- [x] Add logout functionality (via auth context)
+- [x] Create auth context for state management
+- [x] Implement data sync utilities (local ↔ cloud)
+- [x] Add initial sync (upload local data)
+- [x] Add full sync (download and merge cloud data)
+- [ ] Integrate sync into app flows
+- [ ] Handle offline mode gracefully
+- [ ] Add loading states for sync operations
+- [ ] Test authentication flows
+- [ ] Test data sync and conflict resolution
+- [ ] Update settings screen with account management
+- [ ] Create checkpoint for Phase 2 completion

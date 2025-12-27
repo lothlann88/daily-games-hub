@@ -19,7 +19,9 @@ export interface UserProfile {
   id: string;
   name: string;
   avatar?: string;
-  createdAt: number;
+  avatarUrl?: string;
+  isPrivate?: boolean;
+  createdAt?: number;
 }
 
 export interface Score {
