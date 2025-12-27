@@ -179,3 +179,16 @@
 
 - [x] Verify all 24 games are displaying on home screen (all 24 games present in storage)
 - [x] Check default games list in storage.ts (confirmed all games are there)
+
+## Phase 1: Single-User Architecture Refactoring
+- [x] Update data models (remove Player type, add UserProfile, remove playerId from Score)
+- [x] Update storage layer for single-user model
+- [x] Remove player selection from score logging (game-detail.tsx)
+- [x] Create onboarding screen for first-time user setup
+- [x] Add onboarding check to root layout
+- [x] Convert leaderboard to personal stats screen
+- [x] Update settings screen to user profile management
+- [x] Update tab navigation labels (Leaderboard → Stats)
+- [x] Update remaining UI text from "players" to "you/your"
+- [ ] Test complete onboarding → game playing → stats flow
+- [ ] Create checkpoint for Phase 1 completion

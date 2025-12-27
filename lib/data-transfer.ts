@@ -2,20 +2,20 @@ import { Paths, File } from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import * as DocumentPicker from "expo-document-picker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Game, Player, Score, Preferences } from "@/types";
+import { Game, UserProfile, Score, Preferences } from "@/types";
 
 const KEYS = {
-  GAMES: "@daily_games_hub:games",
-  PLAYERS: "@daily_games_hub:players",
-  SCORES: "@daily_games_hub:scores",
-  PREFERENCES: "@daily_games_hub:preferences",
+  GAMES: "games",
+  USER_PROFILE: "userProfile",
+  SCORES: "scores",
+  PREFERENCES: "preferences",
 };
 
 export interface ExportData {
   version: string;
   exportDate: string;
   games: Game[];
-  players: Player[];
+  userProfile: UserProfile | null;
   scores: Score[];
   preferences: Preferences | null;
 }
@@ -25,18 +25,18 @@ export interface ExportData {
  */
 export async function exportData(): Promise<ExportData> {
   try {
-    const [gamesData, playersData, scoresData, preferencesData] = await Promise.all([
+    const [gamesData, profileData, scoresData, preferencesData] = await Promise.all([
       AsyncStorage.getItem(KEYS.GAMES),
-      AsyncStorage.getItem(KEYS.PLAYERS),
+      AsyncStorage.getItem(KEYS.USER_PROFILE),
       AsyncStorage.getItem(KEYS.SCORES),
       AsyncStorage.getItem(KEYS.PREFERENCES),
     ]);
 
     const exportData: ExportData = {
-      version: "1.0",
+      version: "2.0",
       exportDate: new Date().toISOString(),
       games: gamesData ? JSON.parse(gamesData) : [],
-      players: playersData ? JSON.parse(playersData) : [],
+      userProfile: profileData ? JSON.parse(profileData) : null,
       scores: scoresData ? JSON.parse(scoresData) : [],
       preferences: preferencesData ? JSON.parse(preferencesData) : null,
     };
@@ -83,14 +83,16 @@ export async function exportAndShare(): Promise<void> {
 export async function importData(data: ExportData): Promise<void> {
   try {
     // Validate data structure
-    if (!data.version || !data.games || !data.players || !data.scores) {
+    if (!data.version || !data.games || !data.scores) {
       throw new Error("Invalid data format");
     }
 
     // Save all data
     await Promise.all([
       AsyncStorage.setItem(KEYS.GAMES, JSON.stringify(data.games)),
-      AsyncStorage.setItem(KEYS.PLAYERS, JSON.stringify(data.players)),
+      data.userProfile
+        ? AsyncStorage.setItem(KEYS.USER_PROFILE, JSON.stringify(data.userProfile))
+        : Promise.resolve(),
       AsyncStorage.setItem(KEYS.SCORES, JSON.stringify(data.scores)),
       data.preferences
         ? AsyncStorage.setItem(KEYS.PREFERENCES, JSON.stringify(data.preferences))
@@ -139,14 +141,12 @@ export async function pickAndImportData(): Promise<void> {
 export async function mergeImportedData(data: ExportData): Promise<void> {
   try {
     // Get existing data
-    const [existingGames, existingPlayers, existingScores] = await Promise.all([
+    const [existingGames, existingScores] = await Promise.all([
       AsyncStorage.getItem(KEYS.GAMES),
-      AsyncStorage.getItem(KEYS.PLAYERS),
       AsyncStorage.getItem(KEYS.SCORES),
     ]);
 
     const currentGames: Game[] = existingGames ? JSON.parse(existingGames) : [];
-    const currentPlayers: Player[] = existingPlayers ? JSON.parse(existingPlayers) : [];
     const currentScores: Score[] = existingScores ? JSON.parse(existingScores) : [];
 
     // Merge games (avoid duplicates by ID)
@@ -154,14 +154,6 @@ export async function mergeImportedData(data: ExportData): Promise<void> {
     data.games.forEach((g) => {
       if (!gamesMap.has(g.id)) {
         gamesMap.set(g.id, g);
-      }
-    });
-
-    // Merge players (avoid duplicates by ID)
-    const playersMap = new Map(currentPlayers.map((p) => [p.id, p]));
-    data.players.forEach((p) => {
-      if (!playersMap.has(p.id)) {
-        playersMap.set(p.id, p);
       }
     });
 
@@ -176,7 +168,6 @@ export async function mergeImportedData(data: ExportData): Promise<void> {
     // Save merged data
     await Promise.all([
       AsyncStorage.setItem(KEYS.GAMES, JSON.stringify(Array.from(gamesMap.values()))),
-      AsyncStorage.setItem(KEYS.PLAYERS, JSON.stringify(Array.from(playersMap.values()))),
       AsyncStorage.setItem(KEYS.SCORES, JSON.stringify(Array.from(scoresMap.values()))),
     ]);
   } catch (error) {

@@ -1,252 +1,223 @@
-import { useState, useEffect, useMemo } from "react";
-import {
-  StyleSheet,
-  View,
-  ScrollView,
-  ActivityIndicator,
-  Pressable,
-} from "react-native";
+import { useMemo, useState } from "react";
+import { View, StyleSheet, ScrollView, Pressable, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { useScores, usePlayers, useGames } from "@/hooks/use-storage";
+import { useScores, useGames } from "@/hooks/use-storage";
 import { useThemeColor } from "@/hooks/use-theme-color";
-import { Score } from "@/types";
 
 type TimePeriod = "week" | "month" | "all";
 
-export default function LeaderboardScreen() {
+export default function StatsScreen() {
   const { scores, loading: scoresLoading } = useScores();
-  const { players, loading: playersLoading } = usePlayers();
   const { games, loading: gamesLoading } = useGames();
   const [timePeriod, setTimePeriod] = useState<TimePeriod>("all");
   const insets = useSafeAreaInsets();
   const tintColor = useThemeColor({}, "tint");
   const cardBackground = useThemeColor({}, "card");
 
-  const loading = scoresLoading || playersLoading || gamesLoading;
+  const loading = scoresLoading || gamesLoading;
 
   const filteredScores = useMemo(() => {
     const now = Date.now();
-    const dayMs = 24 * 60 * 60 * 1000;
+    const oneWeek = 7 * 24 * 60 * 60 * 1000;
+    const oneMonth = 30 * 24 * 60 * 60 * 1000;
 
-    switch (timePeriod) {
-      case "week":
-        return scores.filter((s) => now - s.datePlayed < 7 * dayMs);
-      case "month":
-        return scores.filter((s) => now - s.datePlayed < 30 * dayMs);
-      default:
-        return scores;
-    }
+    return scores.filter((score) => {
+      if (timePeriod === "week") return now - score.datePlayed < oneWeek;
+      if (timePeriod === "month") return now - score.datePlayed < oneMonth;
+      return true;
+    });
   }, [scores, timePeriod]);
 
   const stats = useMemo(() => {
-    const playerStats: Record<string, { wins: number; total: number }> = {};
+    const wins = filteredScores.filter((s) => s.result === "win").length;
+    const losses = filteredScores.filter((s) => s.result === "loss").length;
+    const draws = filteredScores.filter((s) => s.result === "draw").length;
+    const total = filteredScores.length;
+    const winRate = total > 0 ? ((wins / total) * 100).toFixed(1) : "0.0";
 
-    players.forEach((player) => {
-      playerStats[player.id] = { wins: 0, total: 0 };
+    return { wins, losses, draws, total, winRate };
+  }, [filteredScores]);
+
+  const gameStats = useMemo(() => {
+    const gameScores: Record<string, { wins: number; total: number; lastPlayed?: number }> = {};
+
+    games.forEach((game) => {
+      gameScores[game.id] = { wins: 0, total: 0 };
     });
 
     filteredScores.forEach((score) => {
-      if (playerStats[score.playerId]) {
-        playerStats[score.playerId].total++;
+      if (gameScores[score.gameId]) {
+        gameScores[score.gameId].total++;
         if (score.result === "win") {
-          playerStats[score.playerId].wins++;
+          gameScores[score.gameId].wins++;
+        }
+        if (!gameScores[score.gameId].lastPlayed || score.datePlayed > gameScores[score.gameId].lastPlayed!) {
+          gameScores[score.gameId].lastPlayed = score.datePlayed;
         }
       }
     });
 
-    return playerStats;
-  }, [filteredScores, players]);
-
-  const gameStats = useMemo(() => {
-    const gameScores: Record<string, Record<string, number>> = {};
-
-    games.forEach((game) => {
-      gameScores[game.id] = {};
-      players.forEach((player) => {
-        gameScores[game.id][player.id] = 0;
-      });
-    });
-
-    filteredScores.forEach((score) => {
-      if (gameScores[score.gameId] && score.result === "win") {
-        gameScores[score.gameId][score.playerId]++;
-      }
-    });
-
     return gameScores;
-  }, [filteredScores, games, players]);
+  }, [filteredScores, games]);
+
+  const activeStreaks = useMemo(() => {
+    return games
+      .filter((game) => game.currentStreak > 0)
+      .sort((a, b) => b.currentStreak - a.currentStreak);
+  }, [games]);
 
   if (loading) {
     return (
-      <ThemedView style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={tintColor} />
+      <ThemedView style={styles.container}>
+        <View style={[styles.loadingContainer, { paddingTop: insets.top }]}>
+          <ActivityIndicator size="large" color={tintColor} />
+        </View>
       </ThemedView>
     );
   }
 
-  const TimePeriodButton = ({ period, label }: { period: TimePeriod; label: string }) => (
-    <Pressable
-      onPress={() => setTimePeriod(period)}
-      style={[
-        styles.periodButton,
-        timePeriod === period && { backgroundColor: tintColor },
-      ]}
-    >
-      <ThemedText
-        style={[
-          styles.periodButtonText,
-          timePeriod === period && { color: "#fff" },
-        ]}
-      >
-        {label}
-      </ThemedText>
-    </Pressable>
-  );
-
   return (
     <ThemedView style={styles.container}>
       <ScrollView
-        contentContainerStyle={[
-          styles.scrollContent,
-          {
-            paddingTop: Math.max(insets.top, 20) + 8,
-            paddingBottom: Math.max(insets.bottom, 20),
-          },
-        ]}
-        showsVerticalScrollIndicator={false}
+        style={styles.scrollView}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 16 }]}
       >
-        <View style={styles.header}>
-          <ThemedText type="title">Leaderboard</ThemedText>
-        </View>
+        <ThemedText type="title" style={styles.title}>
+          Your Stats
+        </ThemedText>
 
+        {/* Time Period Selector */}
         <View style={styles.periodSelector}>
-          <TimePeriodButton period="week" label="Week" />
-          <TimePeriodButton period="month" label="Month" />
-          <TimePeriodButton period="all" label="All Time" />
-        </View>
-
-        <View style={styles.section}>
-          <ThemedText type="subtitle" style={styles.sectionTitle}>
-            Overall Stats
-          </ThemedText>
-          {players.map((player) => (
-            <View
-              key={player.id}
-              style={[styles.statCard, { backgroundColor: cardBackground }]}
+          {(["week", "month", "all"] as TimePeriod[]).map((period) => (
+            <Pressable
+              key={period}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setTimePeriod(period);
+              }}
+              style={[
+                styles.periodButton,
+                { borderColor: tintColor },
+                timePeriod === period && { backgroundColor: tintColor },
+              ]}
             >
-              <View style={styles.statCardHeader}>
-                <View style={[styles.playerBadge, { backgroundColor: player.color }]}>
-                  <ThemedText style={styles.playerBadgeText}>
-                    {player.name.charAt(0).toUpperCase()}
-                  </ThemedText>
-                </View>
-                <ThemedText type="defaultSemiBold" style={styles.playerName}>
-                  {player.name}
-                </ThemedText>
-              </View>
-              <View style={styles.statCardContent}>
-                <View style={styles.statItem}>
-                  <ThemedText style={styles.statValue}>
-                    {stats[player.id]?.wins || 0}
-                  </ThemedText>
-                  <ThemedText style={styles.statLabel}>Wins</ThemedText>
-                </View>
-                <View style={styles.statItem}>
-                  <ThemedText style={styles.statValue}>
-                    {stats[player.id]?.total || 0}
-                  </ThemedText>
-                  <ThemedText style={styles.statLabel}>Games Played</ThemedText>
-                </View>
-              </View>
-            </View>
+              <ThemedText
+                style={[
+                  styles.periodButtonText,
+                  timePeriod === period && { color: "#fff" },
+                ]}
+              >
+                {period === "week" ? "This Week" : period === "month" ? "This Month" : "All Time"}
+              </ThemedText>
+            </Pressable>
           ))}
         </View>
 
-        {games.length > 0 && filteredScores.length > 0 && (
-          <View style={styles.section}>
-            <ThemedText type="subtitle" style={styles.sectionTitle}>
-              Game Breakdown
-            </ThemedText>
-            {games.map((game) => {
-              const hasScores = players.some(
-                (player) => gameStats[game.id]?.[player.id] > 0
-              );
-              if (!hasScores) return null;
-
-              return (
-                <View
-                  key={game.id}
-                  style={[styles.gameCard, { backgroundColor: cardBackground }]}
-                >
-                  <View style={styles.gameCardHeader}>
-                    <ThemedText style={styles.gameIcon}>{game.icon}</ThemedText>
-                    <ThemedText type="defaultSemiBold">{game.name}</ThemedText>
-                  </View>
-                  <View style={styles.gameCardScores}>
-                    {players.map((player) => (
-                      <View key={player.id} style={styles.gameScoreItem}>
-                        <View
-                          style={[
-                            styles.gameScoreBadge,
-                            { backgroundColor: player.color },
-                          ]}
-                        />
-                        <ThemedText style={styles.gameScoreText}>
-                          {player.name}: {gameStats[game.id]?.[player.id] || 0} wins
-                        </ThemedText>
-                      </View>
-                    ))}
-                  </View>
-                </View>
-              );
-            })}
+        {/* Overall Stats */}
+        <View style={[styles.section, { backgroundColor: cardBackground }]}>
+          <ThemedText type="subtitle" style={styles.sectionTitle}>
+            Overall Performance
+          </ThemedText>
+          <View style={styles.statsGrid}>
+            <View style={styles.statItem}>
+              <ThemedText style={[styles.statValue, { color: tintColor }]}>
+                {stats.total}
+              </ThemedText>
+              <ThemedText style={styles.statLabel}>Games Played</ThemedText>
+            </View>
+            <View style={styles.statItem}>
+              <ThemedText style={[styles.statValue, { color: "#10B981" }]}>
+                {stats.wins}
+              </ThemedText>
+              <ThemedText style={styles.statLabel}>Wins</ThemedText>
+            </View>
+            <View style={styles.statItem}>
+              <ThemedText style={[styles.statValue, { color: "#EF4444" }]}>
+                {stats.losses}
+              </ThemedText>
+              <ThemedText style={styles.statLabel}>Losses</ThemedText>
+            </View>
+            <View style={styles.statItem}>
+              <ThemedText style={[styles.statValue, { color: "#F59E0B" }]}>
+                {stats.draws}
+              </ThemedText>
+              <ThemedText style={styles.statLabel}>Draws</ThemedText>
+            </View>
+            <View style={styles.statItem}>
+              <ThemedText style={[styles.statValue, { color: tintColor }]}>
+                {stats.winRate}%
+              </ThemedText>
+              <ThemedText style={styles.statLabel}>Win Rate</ThemedText>
+            </View>
           </View>
-        )}
+        </View>
 
-        {games.length > 0 && (
-          <View style={styles.section}>
+        {/* Active Streaks */}
+        {activeStreaks.length > 0 && (
+          <View style={[styles.section, { backgroundColor: cardBackground }]}>
             <ThemedText type="subtitle" style={styles.sectionTitle}>
-              Active Streaks
+              🔥 Active Streaks
             </ThemedText>
-            {games
-              .filter((game) => game.currentStreak > 0)
-              .sort((a, b) => b.currentStreak - a.currentStreak)
-              .map((game) => (
-                <View
-                  key={game.id}
-                  style={[styles.streakCard, { backgroundColor: cardBackground }]}
-                >
-                  <View style={styles.streakCardLeft}>
-                    <ThemedText style={styles.streakGameIcon}>{game.icon}</ThemedText>
-                    <ThemedText type="defaultSemiBold">{game.name}</ThemedText>
-                  </View>
-                  <View style={styles.streakCardRight}>
-                    <ThemedText style={styles.streakEmoji}>🔥</ThemedText>
-                    <ThemedText style={styles.streakValue}>{game.currentStreak}</ThemedText>
-                  </View>
-                </View>
-              ))}
-            {games.every((game) => game.currentStreak === 0) && (
-              <View style={styles.emptyStreakContainer}>
-                <ThemedText style={styles.emptyStreakText}>
-                  No active streaks yet. Start playing daily to build streaks!
+            {activeStreaks.map((game) => (
+              <View key={game.id} style={styles.streakRow}>
+                <ThemedText type="defaultSemiBold">{game.name}</ThemedText>
+                <ThemedText style={[styles.streakValue, { color: tintColor }]}>
+                  {game.currentStreak} days
                 </ThemedText>
               </View>
-            )}
+            ))}
           </View>
         )}
 
-        {filteredScores.length === 0 && (
-          <View style={styles.emptyContainer}>
-            <ThemedText style={styles.emptyText}>No scores yet</ThemedText>
-            <ThemedText style={styles.emptySubtext}>
-              Play some games and log your scores to see stats here
-            </ThemedText>
-          </View>
-        )}
+        {/* Game Breakdown */}
+        <View style={[styles.section, { backgroundColor: cardBackground }]}>
+          <ThemedText type="subtitle" style={styles.sectionTitle}>
+            Game Breakdown
+          </ThemedText>
+          {games.map((game) => {
+            const stats = gameStats[game.id];
+            if (!stats || stats.total === 0) return null;
+
+            const winRate = ((stats.wins / stats.total) * 100).toFixed(0);
+
+            return (
+              <View key={game.id} style={styles.gameCard}>
+                <View style={styles.gameCardHeader}>
+                  <ThemedText type="defaultSemiBold">{game.name}</ThemedText>
+                  <ThemedText style={styles.gameCardSubtext}>
+                    {stats.total} {stats.total === 1 ? "game" : "games"}
+                  </ThemedText>
+                </View>
+                <View style={styles.gameCardStats}>
+                  <View style={styles.gameStatItem}>
+                    <ThemedText style={[styles.gameStatValue, { color: "#10B981" }]}>
+                      {stats.wins}
+                    </ThemedText>
+                    <ThemedText style={styles.gameStatLabel}>Wins</ThemedText>
+                  </View>
+                  <View style={styles.gameStatItem}>
+                    <ThemedText style={[styles.gameStatValue, { color: tintColor }]}>
+                      {winRate}%
+                    </ThemedText>
+                    <ThemedText style={styles.gameStatLabel}>Win Rate</ThemedText>
+                  </View>
+                  {game.currentStreak > 0 && (
+                    <View style={styles.gameStatItem}>
+                      <ThemedText style={[styles.gameStatValue, { color: "#F59E0B" }]}>
+                        🔥 {game.currentStreak}
+                      </ThemedText>
+                      <ThemedText style={styles.gameStatLabel}>Streak</ThemedText>
+                    </View>
+                  )}
+                </View>
+              </View>
+            );
+          })}
+        </View>
       </ScrollView>
     </ThemedView>
   );
@@ -261,23 +232,27 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  scrollContent: {
-    paddingHorizontal: 16,
+  scrollView: {
+    flex: 1,
   },
-  header: {
-    paddingBottom: 16,
+  scrollContent: {
+    padding: 16,
+    paddingBottom: 32,
+  },
+  title: {
+    marginBottom: 16,
   },
   periodSelector: {
     flexDirection: "row",
     gap: 8,
-    marginBottom: 24,
+    marginBottom: 16,
   },
   periodButton: {
     flex: 1,
     paddingVertical: 10,
     paddingHorizontal: 16,
     borderRadius: 8,
-    backgroundColor: "rgba(0, 122, 255, 0.1)",
+    borderWidth: 1,
     alignItems: "center",
   },
   periodButtonText: {
@@ -285,138 +260,70 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   section: {
-    marginBottom: 24,
-    gap: 12,
-  },
-  sectionTitle: {
-    marginBottom: 4,
-  },
-  statCard: {
     borderRadius: 12,
     padding: 16,
-    gap: 12,
+    marginBottom: 16,
   },
-  statCardHeader: {
+  sectionTitle: {
+    marginBottom: 16,
+  },
+  statsGrid: {
     flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
+    flexWrap: "wrap",
+    gap: 16,
   },
-  playerBadge: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: "center",
+  statItem: {
     alignItems: "center",
+    minWidth: "30%",
   },
-  playerBadgeText: {
-    color: "#fff",
-    fontSize: 18,
+  statValue: {
+    fontSize: 32,
     fontWeight: "bold",
+    marginBottom: 4,
   },
-  playerName: {
-    fontSize: 17,
+  statLabel: {
+    fontSize: 14,
+    opacity: 0.7,
   },
-  statCardContent: {
+  streakRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(0,0,0,0.05)",
+  },
+  streakValue: {
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  gameCard: {
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(0,0,0,0.05)",
+  },
+  gameCardHeader: {
+    marginBottom: 8,
+  },
+  gameCardSubtext: {
+    fontSize: 13,
+    opacity: 0.6,
+    marginTop: 2,
+  },
+  gameCardStats: {
     flexDirection: "row",
     gap: 24,
   },
-  statItem: {
-    gap: 4,
-  },
-  statValue: {
-    fontSize: 28,
-    fontWeight: "bold",
-    lineHeight: 34,
-  },
-  statLabel: {
-    fontSize: 13,
-    lineHeight: 18,
-    opacity: 0.6,
-  },
-  gameCard: {
-    borderRadius: 12,
-    padding: 16,
-    gap: 12,
-  },
-  gameCardHeader: {
-    flexDirection: "row",
+  gameStatItem: {
     alignItems: "center",
-    gap: 8,
   },
-  gameIcon: {
-    fontSize: 20,
-  },
-  gameCardScores: {
-    gap: 8,
-  },
-  gameScoreItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  gameScoreBadge: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-  },
-  gameScoreText: {
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  emptyContainer: {
-    paddingVertical: 60,
-    paddingHorizontal: 32,
-    alignItems: "center",
-    gap: 8,
-  },
-  emptyText: {
-    fontSize: 20,
-    fontWeight: "600",
-    textAlign: "center",
-  },
-  emptySubtext: {
-    fontSize: 14,
-    lineHeight: 20,
-    opacity: 0.6,
-    textAlign: "center",
-  },
-  streakCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: 16,
-    borderRadius: 12,
-  },
-  streakCardLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  streakGameIcon: {
-    fontSize: 24,
-  },
-  streakCardRight: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  streakEmoji: {
-    fontSize: 24,
-  },
-  streakValue: {
+  gameStatValue: {
     fontSize: 20,
     fontWeight: "bold",
-    lineHeight: 24,
+    marginBottom: 2,
   },
-  emptyStreakContainer: {
-    paddingVertical: 24,
-    paddingHorizontal: 16,
-    alignItems: "center",
-  },
-  emptyStreakText: {
-    fontSize: 14,
-    lineHeight: 20,
-    opacity: 0.6,
-    textAlign: "center",
+  gameStatLabel: {
+    fontSize: 12,
+    opacity: 0.7,
   },
 });

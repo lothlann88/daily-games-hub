@@ -7,19 +7,21 @@ import {
   Switch,
   ActivityIndicator,
   Alert,
+  TextInput,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { usePlayers, usePreferences, useGames, useScores } from "@/hooks/use-storage";
+import { usePreferences, useGames, useScores } from "@/hooks/use-storage";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import * as notificationLib from "@/lib/notifications";
 import * as dataTransfer from "@/lib/data-transfer";
+import { getUserProfile, updateUserProfile } from "@/lib/storage";
+import { UserProfile } from "@/types";
 
 export default function SettingsScreen() {
-  const { players, loading: playersLoading, updatePlayer } = usePlayers();
   const { preferences, loading: prefsLoading, updatePreferences } = usePreferences();
   const { refresh: refreshGames } = useGames();
   const { refresh: refreshScores } = useScores();
@@ -27,8 +29,20 @@ export default function SettingsScreen() {
   const tintColor = useThemeColor({}, "tint");
   const cardBackground = useThemeColor({}, "card");
   const borderColor = useThemeColor({}, "cardBorder");
+  const textColor = useThemeColor({}, "text");
 
-  const loading = playersLoading || prefsLoading;
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [profileLoading, setProfileLoading] = useState(true);
+
+  useEffect(() => {
+    loadUserProfile();
+  }, []);
+
+  const loadUserProfile = async () => {
+    const profile = await getUserProfile();
+    setUserProfile(profile);
+    setProfileLoading(false);
+  };
 
   const handleExportData = async () => {
     try {
@@ -54,6 +68,7 @@ export default function SettingsScreen() {
               await dataTransfer.pickAndImportData();
               await refreshGames();
               await refreshScores();
+              await loadUserProfile();
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
               Alert.alert("Success", "Data imported successfully!");
             } catch (error) {
@@ -68,6 +83,7 @@ export default function SettingsScreen() {
               const result = await dataTransfer.pickAndImportData();
               await refreshGames();
               await refreshScores();
+              await loadUserProfile();
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
               Alert.alert("Success", "Data merged successfully!");
             } catch (error) {
@@ -79,25 +95,26 @@ export default function SettingsScreen() {
     );
   };
 
-  const handleEditPlayer = (playerId: string, currentName: string) => {
+  const handleEditName = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     Alert.prompt(
-      "Edit Player Name",
-      "Enter a new name for this player",
+      "Edit Your Name",
+      "Enter your name",
       [
         { text: "Cancel", style: "cancel" },
         {
           text: "Save",
           onPress: async (newName?: string) => {
             if (newName && newName.trim()) {
-              await updatePlayer(playerId, { name: newName.trim() });
+              await updateUserProfile({ name: newName.trim() });
+              await loadUserProfile();
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             }
           },
         },
       ],
       "plain-text",
-      currentName
+      userProfile?.name || ""
     );
   };
 
@@ -164,6 +181,8 @@ export default function SettingsScreen() {
     );
   };
 
+  const loading = prefsLoading || profileLoading;
+
   if (loading) {
     return (
       <ThemedView style={styles.loadingContainer}>
@@ -188,29 +207,31 @@ export default function SettingsScreen() {
           <ThemedText type="title">Settings</ThemedText>
         </View>
 
+        {/* User Profile Section */}
         <View style={styles.section}>
           <ThemedText type="subtitle" style={styles.sectionTitle}>
-            Players
+            Your Profile
           </ThemedText>
-          {players.map((player) => (
-            <Pressable
-              key={player.id}
-              onPress={() => handleEditPlayer(player.id, player.name)}
-              style={[styles.settingRow, { backgroundColor: cardBackground, borderColor }]}
-            >
-              <View style={styles.settingRowLeft}>
-                <View style={[styles.playerBadge, { backgroundColor: player.color }]}>
-                  <ThemedText style={styles.playerBadgeText}>
-                    {player.name.charAt(0).toUpperCase()}
-                  </ThemedText>
-                </View>
-                <ThemedText type="defaultSemiBold">{player.name}</ThemedText>
+          <Pressable
+            onPress={handleEditName}
+            style={[styles.settingRow, { backgroundColor: cardBackground, borderColor }]}
+          >
+            <View style={styles.settingRowLeft}>
+              <View style={[styles.avatarBadge, { backgroundColor: tintColor }]}>
+                <ThemedText style={styles.avatarText}>
+                  {userProfile?.name?.charAt(0).toUpperCase() || "?"}
+                </ThemedText>
               </View>
-              <ThemedText style={styles.settingRowRight}>Edit</ThemedText>
-            </Pressable>
-          ))}
+              <View style={{ flex: 1 }}>
+                <ThemedText type="defaultSemiBold">{userProfile?.name || "User"}</ThemedText>
+                <ThemedText style={styles.settingDescription}>Tap to edit your name</ThemedText>
+              </View>
+            </View>
+            <ThemedText style={styles.settingRowRight}>Edit</ThemedText>
+          </Pressable>
         </View>
 
+        {/* Notifications Section */}
         <View style={styles.section}>
           <ThemedText type="subtitle" style={styles.sectionTitle}>
             Notifications
@@ -218,6 +239,9 @@ export default function SettingsScreen() {
           <View style={[styles.settingRow, { backgroundColor: cardBackground, borderColor }]}>
             <View style={styles.settingRowLeft}>
               <ThemedText type="defaultSemiBold">Daily Reminders</ThemedText>
+              <ThemedText style={styles.settingDescription}>
+                Get reminded to play your daily games
+              </ThemedText>
             </View>
             <Switch
               value={preferences?.remindersEnabled || false}
@@ -272,6 +296,7 @@ export default function SettingsScreen() {
           </Pressable>
         </View>
 
+        {/* About Section */}
         <View style={styles.section}>
           <ThemedText type="subtitle" style={styles.sectionTitle}>
             About
@@ -280,12 +305,12 @@ export default function SettingsScreen() {
             <View style={styles.settingRowLeft}>
               <ThemedText>Version</ThemedText>
             </View>
-            <ThemedText style={styles.settingRowRight}>1.0.0</ThemedText>
+            <ThemedText style={styles.settingRowRight}>2.0.0</ThemedText>
           </View>
           <View style={[styles.infoCard, { backgroundColor: cardBackground }]}>
             <ThemedText style={styles.infoText}>
-              Daily Games Hub helps you keep track of all your favorite daily games in one place.
-              Play games, log scores, and compete with friends!
+              Daily Games Hub helps you track all your favorite daily games in one place.
+              Build streaks, track your stats, and compete with friends!
             </ThemedText>
           </View>
         </View>
@@ -326,9 +351,9 @@ const styles = StyleSheet.create({
     minHeight: 56,
   },
   settingRowLeft: {
-    flexDirection: "column",
-    alignItems: "flex-start",
-    gap: 4,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
     flex: 1,
   },
   settingDescription: {
@@ -340,16 +365,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     opacity: 0.6,
   },
-  playerBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+  avatarBadge: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     justifyContent: "center",
     alignItems: "center",
   },
-  playerBadgeText: {
+  avatarText: {
     color: "#fff",
-    fontSize: 14,
+    fontSize: 20,
     fontWeight: "bold",
   },
   infoCard: {

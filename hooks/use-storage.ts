@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Game, Player, Score, Preferences } from "@/types";
+import { Game, UserProfile, Score, Preferences } from "@/types";
 import * as storage from "@/lib/storage";
 
 export function useGames() {
@@ -35,27 +35,32 @@ export function useGames() {
   return { games, loading, addGame, updateGame, deleteGame, refresh: loadGames };
 }
 
-export function usePlayers() {
-  const [players, setPlayers] = useState<Player[]>([]);
+export function useUserProfile() {
+  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const loadPlayers = useCallback(async () => {
+  const loadProfile = useCallback(async () => {
     setLoading(true);
-    const data = await storage.getPlayers();
-    setPlayers(data);
+    const data = await storage.getUserProfile();
+    setProfile(data);
     setLoading(false);
   }, []);
 
   useEffect(() => {
-    loadPlayers();
-  }, [loadPlayers]);
+    loadProfile();
+  }, [loadProfile]);
 
-  const updatePlayer = useCallback(async (playerId: string, updates: Partial<Player>) => {
-    await storage.updatePlayer(playerId, updates);
-    await loadPlayers();
-  }, [loadPlayers]);
+  const saveProfile = useCallback(async (newProfile: UserProfile) => {
+    await storage.saveUserProfile(newProfile);
+    setProfile(newProfile);
+  }, []);
 
-  return { players, loading, updatePlayer, refresh: loadPlayers };
+  const updateProfile = useCallback(async (updates: Partial<UserProfile>) => {
+    await storage.updateUserProfile(updates);
+    await loadProfile();
+  }, [loadProfile]);
+
+  return { profile, loading, saveProfile, updateProfile, refresh: loadProfile };
 }
 
 export function useScores() {
@@ -82,11 +87,7 @@ export function useScores() {
     return await storage.getScoresByGame(gameId);
   }, []);
 
-  const getScoresByPlayer = useCallback(async (playerId: string) => {
-    return await storage.getScoresByPlayer(playerId);
-  }, []);
-
-  return { scores, loading, addScore, getScoresByGame, getScoresByPlayer, refresh: loadScores };
+  return { scores, loading, addScore, getScoresByGame, refresh: loadScores };
 }
 
 export function usePreferences() {

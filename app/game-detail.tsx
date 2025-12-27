@@ -20,17 +20,15 @@ import { getGameIcon } from "@/components/ui/game-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { PlayCalendar } from "@/components/play-calendar";
 import { PersonalNotes } from "@/components/personal-notes";
-import { useGames, usePlayers, useScores } from "@/hooks/use-storage";
+import { useGames, useScores } from "@/hooks/use-storage";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { Score } from "@/types";
 
 export default function GameDetailScreen() {
   const { gameId } = useLocalSearchParams<{ gameId: string }>();
   const { games } = useGames();
-  const { players } = usePlayers();
   const { addScore, getScoresByGame } = useScores();
   const [recentScores, setRecentScores] = useState<Score[]>([]);
-  const [selectedPlayerId, setSelectedPlayerId] = useState<string>("");
   const [scoreValue, setScoreValue] = useState("");
   const [result, setResult] = useState<"win" | "loss" | "draw">("win");
   const [notes, setNotes] = useState("");
@@ -47,11 +45,7 @@ export default function GameDetailScreen() {
 
   const game = games.find((g) => g.id === gameId);
 
-  useEffect(() => {
-    if (players.length > 0 && !selectedPlayerId) {
-      setSelectedPlayerId(players[0].id);
-    }
-  }, [players, selectedPlayerId]);
+
 
   useEffect(() => {
     if (gameId) {
@@ -79,8 +73,7 @@ export default function GameDetailScreen() {
   };
 
   const handleSubmitScore = async () => {
-    if (!game || !selectedPlayerId) {
-      Alert.alert("Error", "Please select a player");
+    if (!game) {
       return;
     }
 
@@ -94,7 +87,6 @@ export default function GameDetailScreen() {
       const score: Score = {
         id: `${Date.now()}-${Math.random()}`,
         gameId: game.id,
-        playerId: selectedPlayerId,
         score: parseFloat(scoreValue) || 0,
         result,
         datePlayed: Date.now(),
@@ -148,7 +140,7 @@ export default function GameDetailScreen() {
     );
   }
 
-  const getPlayerById = (playerId: string) => players.find((p) => p.id === playerId);
+
 
   return (
     <ThemedView style={styles.container}>
@@ -226,7 +218,7 @@ export default function GameDetailScreen() {
         {/* Play History Calendar */}
         <View style={[styles.section, { backgroundColor: cardBackground, borderColor }]}>
           <ThemedText type="subtitle" style={styles.sectionTitle}>
-            Play History
+            Your Play History
           </ThemedText>
           <PlayCalendar
             playHistory={game.playHistory}
@@ -243,37 +235,7 @@ export default function GameDetailScreen() {
             Log Score
           </ThemedText>
 
-          <View style={styles.formGroup}>
-            <ThemedText style={styles.label}>Player</ThemedText>
-            <View style={styles.playerSelector}>
-              {players.map((player) => (
-                <Pressable
-                  key={player.id}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setSelectedPlayerId(player.id);
-                  }}
-                  style={[
-                    styles.playerButton,
-                    { borderColor },
-                    selectedPlayerId === player.id && {
-                      backgroundColor: player.color,
-                      borderColor: player.color,
-                    },
-                  ]}
-                >
-                  <ThemedText
-                    style={[
-                      styles.playerButtonText,
-                      selectedPlayerId === player.id && { color: "#fff" },
-                    ]}
-                  >
-                    {player.name}
-                  </ThemedText>
-                </Pressable>
-              ))}
-            </View>
-          </View>
+
 
           <View style={styles.formGroup}>
             <ThemedText style={styles.label}>Score</ThemedText>
@@ -355,23 +317,16 @@ export default function GameDetailScreen() {
 
         {recentScores.length > 0 && (
           <View style={[styles.section, { backgroundColor: cardBackground }]}>
-            <ThemedText type="subtitle" style={styles.sectionTitle}>
-              Recent Scores
-            </ThemedText>
+          <ThemedText type="subtitle" style={styles.sectionTitle}>
+            Your Recent Scores
+          </ThemedText>
             {recentScores.map((score) => {
-              const player = getPlayerById(score.playerId);
               const date = new Date(score.datePlayed);
               return (
                 <View key={score.id} style={[styles.scoreRow, { borderColor }]}>
                   <View style={styles.scoreRowLeft}>
-                    <View
-                      style={[
-                        styles.scorePlayerBadge,
-                        { backgroundColor: player?.color || "#999" },
-                      ]}
-                    />
                     <View style={styles.scoreInfo}>
-                      <ThemedText type="defaultSemiBold">{player?.name}</ThemedText>
+                      <ThemedText type="defaultSemiBold">Your Score</ThemedText>
                       <ThemedText style={styles.scoreDate}>
                         {date.toLocaleDateString()}
                       </ThemedText>

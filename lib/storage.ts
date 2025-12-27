@@ -1,11 +1,12 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Game, Player, Score, Preferences } from "@/types";
+import { Game, UserProfile, Score, Preferences } from "@/types";
 
 const KEYS = {
   GAMES: "games",
-  PLAYERS: "players",
+  USER_PROFILE: "userProfile",
   SCORES: "scores",
   PREFERENCES: "preferences",
+  ONBOARDING_COMPLETE: "onboardingComplete",
 };
 
 // Games
@@ -48,31 +49,48 @@ export async function deleteGame(gameId: string): Promise<void> {
   await saveGames(filtered);
 }
 
-// Players
-export async function getPlayers(): Promise<Player[]> {
+// User Profile
+export async function getUserProfile(): Promise<UserProfile | null> {
   try {
-    const data = await AsyncStorage.getItem(KEYS.PLAYERS);
-    return data ? JSON.parse(data) : getDefaultPlayers();
+    const data = await AsyncStorage.getItem(KEYS.USER_PROFILE);
+    return data ? JSON.parse(data) : null;
   } catch (error) {
-    console.error("Error loading players:", error);
-    return getDefaultPlayers();
+    console.error("Error loading user profile:", error);
+    return null;
   }
 }
 
-export async function savePlayers(players: Player[]): Promise<void> {
+export async function saveUserProfile(profile: UserProfile): Promise<void> {
   try {
-    await AsyncStorage.setItem(KEYS.PLAYERS, JSON.stringify(players));
+    await AsyncStorage.setItem(KEYS.USER_PROFILE, JSON.stringify(profile));
   } catch (error) {
-    console.error("Error saving players:", error);
+    console.error("Error saving user profile:", error);
   }
 }
 
-export async function updatePlayer(playerId: string, updates: Partial<Player>): Promise<void> {
-  const players = await getPlayers();
-  const index = players.findIndex((p) => p.id === playerId);
-  if (index !== -1) {
-    players[index] = { ...players[index], ...updates };
-    await savePlayers(players);
+export async function updateUserProfile(updates: Partial<UserProfile>): Promise<void> {
+  const profile = await getUserProfile();
+  if (profile) {
+    const updated = { ...profile, ...updates };
+    await saveUserProfile(updated);
+  }
+}
+
+// Onboarding
+export async function hasCompletedOnboarding(): Promise<boolean> {
+  try {
+    const data = await AsyncStorage.getItem(KEYS.ONBOARDING_COMPLETE);
+    return data === "true";
+  } catch (error) {
+    return false;
+  }
+}
+
+export async function setOnboardingComplete(): Promise<void> {
+  try {
+    await AsyncStorage.setItem(KEYS.ONBOARDING_COMPLETE, "true");
+  } catch (error) {
+    console.error("Error setting onboarding complete:", error);
   }
 }
 
@@ -129,10 +147,7 @@ export async function getScoresByGame(gameId: string): Promise<Score[]> {
   return scores.filter((s) => s.gameId === gameId).sort((a, b) => b.datePlayed - a.datePlayed);
 }
 
-export async function getScoresByPlayer(playerId: string): Promise<Score[]> {
-  const scores = await getScores();
-  return scores.filter((s) => s.playerId === playerId);
-}
+// Removed getScoresByPlayer - no longer needed in single-user mode
 
 // Preferences
 export async function getPreferences(): Promise<Preferences> {
@@ -491,21 +506,6 @@ function getDefaultGames(): Game[] {
       isFavorite: false,
       tags: [],
       notes: "",
-    },
-  ];
-}
-
-function getDefaultPlayers(): Player[] {
-  return [
-    {
-      id: "player1",
-      name: "Player 1",
-      color: "#007AFF",
-    },
-    {
-      id: "player2",
-      name: "Player 2",
-      color: "#FF9500",
     },
   ];
 }

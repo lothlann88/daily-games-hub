@@ -15,16 +15,16 @@ export interface Game {
   notes?: string; // Personal notes about the game (strategies, tips, best scores)
 }
 
-export interface Player {
+export interface UserProfile {
   id: string;
   name: string;
-  color: string;
+  avatar?: string;
+  createdAt: number;
 }
 
 export interface Score {
   id: string;
   gameId: string;
-  playerId: string;
   score: number;
   result: "win" | "loss" | "draw";
   datePlayed: number;
