@@ -23,12 +23,16 @@ import { PersonalNotes } from "@/components/personal-notes";
 import { useGames, useScores } from "@/hooks/use-storage";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { Score } from "@/types";
+import * as friendsLib from "@/lib/friends";
+import type { FriendLeaderboardEntry } from "@/types/friends";
 
 export default function GameDetailScreen() {
   const { gameId } = useLocalSearchParams<{ gameId: string }>();
   const { games } = useGames();
   const { addScore, getScoresByGame } = useScores();
   const [recentScores, setRecentScores] = useState<Score[]>([]);
+  const [friendLeaderboard, setFriendLeaderboard] = useState<FriendLeaderboardEntry[]>([]);
+  const [loadingLeaderboard, setLoadingLeaderboard] = useState(false);
   const [scoreValue, setScoreValue] = useState("");
   const [result, setResult] = useState<"win" | "loss" | "draw">("win");
   const [notes, setNotes] = useState("");
@@ -50,6 +54,7 @@ export default function GameDetailScreen() {
   useEffect(() => {
     if (gameId) {
       loadRecentScores();
+      loadFriendLeaderboard();
     }
   }, [gameId]);
 
@@ -57,6 +62,19 @@ export default function GameDetailScreen() {
     if (!gameId) return;
     const scores = await getScoresByGame(gameId);
     setRecentScores(scores.slice(0, 7));
+  };
+
+  const loadFriendLeaderboard = async () => {
+    if (!gameId) return;
+    try {
+      setLoadingLeaderboard(true);
+      const leaderboard = await friendsLib.getFriendLeaderboard(gameId);
+      setFriendLeaderboard(leaderboard);
+    } catch (error) {
+      console.error("Error loading friend leaderboard:", error);
+    } finally {
+      setLoadingLeaderboard(false);
+    }
   };
 
   const handlePlayGame = async () => {
@@ -95,6 +113,10 @@ export default function GameDetailScreen() {
 
       await addScore(score);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+      // Reload data
+      await loadRecentScores();
+      await loadFriendLeaderboard();
 
       // Reset form
       setScoreValue("");
@@ -229,6 +251,62 @@ export default function GameDetailScreen() {
 
         {/* Personal Notes */}
         <PersonalNotes gameId={game.id} />
+
+        {/* Friend Leaderboard */}
+        {friendLeaderboard.length > 1 && (
+          <View style={[styles.section, { backgroundColor: cardBackground }]}>
+            <ThemedText type="subtitle" style={styles.sectionTitle}>
+              Friend Leaderboard
+            </ThemedText>
+            {loadingLeaderboard ? (
+              <View style={styles.loadingLeaderboard}>
+                <ActivityIndicator size="small" color={tintColor} />
+              </View>
+            ) : (
+              friendLeaderboard.map((entry, index) => (
+                <View
+                  key={entry.user_id}
+                  style={[
+                    styles.leaderboardRow,
+                    { borderColor },
+                    entry.is_current_user && { backgroundColor: tintColor + "10" },
+                  ]}
+                >
+                  <View style={styles.leaderboardLeft}>
+                    <View style={[styles.rankBadge, index < 3 && { backgroundColor: tintColor }]}>
+                      <ThemedText
+                        style={[
+                          styles.rankText,
+                          index < 3 && { color: "#fff", fontWeight: "bold" },
+                        ]}
+                      >
+                        {entry.rank}
+                      </ThemedText>
+                    </View>
+                    <View style={[styles.leaderboardAvatar, { backgroundColor: tintColor }]}>
+                      <ThemedText style={styles.leaderboardAvatarText}>
+                        {entry.name.charAt(0).toUpperCase()}
+                      </ThemedText>
+                    </View>
+                    <View style={styles.leaderboardInfo}>
+                      <ThemedText type="defaultSemiBold">
+                        {entry.is_current_user ? "You" : entry.name}
+                      </ThemedText>
+                      <ThemedText style={styles.leaderboardStats}>
+                        {entry.total_plays} {entry.total_plays === 1 ? "play" : "plays"}
+                      </ThemedText>
+                    </View>
+                  </View>
+                  <View style={styles.leaderboardRight}>
+                    <ThemedText type="defaultSemiBold" style={styles.leaderboardScore}>
+                      {entry.best_score}
+                    </ThemedText>
+                  </View>
+                </View>
+              ))
+            )}
+          </View>
+        )}
 
         <View style={[styles.section, { backgroundColor: cardBackground }]}>
           <ThemedText type="subtitle" style={styles.sectionTitle}>
@@ -552,5 +630,63 @@ const styles = StyleSheet.create({
   },
   scoreResultLoss: {
     color: "#FF3B30",
+  },
+  loadingLeaderboard: {
+    paddingVertical: 20,
+    alignItems: "center",
+  },
+  leaderboardRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginBottom: 8,
+  },
+  leaderboardLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    flex: 1,
+  },
+  rankBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.05)",
+  },
+  rankText: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  leaderboardAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  leaderboardAvatarText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  leaderboardInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  leaderboardStats: {
+    fontSize: 12,
+    opacity: 0.6,
+  },
+  leaderboardRight: {
+    alignItems: "flex-end",
+  },
+  leaderboardScore: {
+    fontSize: 20,
   },
 });

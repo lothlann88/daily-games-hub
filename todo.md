@@ -236,3 +236,24 @@
 - [x] Test login flow with data sync
 - [x] Test logout and re-login
 - [x] Create final Phase 2 checkpoint
+
+## Phase 3: Friends System
+- [x] Create PHASE3_PLAN.md with architecture design
+- [x] Design friends database schema (friendships, friend_requests tables)
+- [x] Create SQL migration for friends tables
+- [x] Run migration in Supabase
+- [x] Create friends management utilities (lib/friends.ts)
+- [x] Add friend request utilities (send, accept, reject)
+- [x] Create TypeScript types for friends system
+- [x] Create Friends tab in navigation
+- [x] Build friend list UI component
+- [x] Build friend requests UI (pending incoming/outgoing)
+- [x] Add Friends tab icon mapping
+- [x] Add friend search functionality
+- [x] Add "Add Friend" button and modal
+- [x] Implement friend score comparison view
+- [x] Add friend leaderboards per game
+- [x] Test friend request flow
+- [x] Test friend list and removal
+- [x] Test score comparison
+- [x] Create Phase 3 checkpoint

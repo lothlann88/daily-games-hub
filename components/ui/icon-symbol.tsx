@@ -50,6 +50,7 @@ const ADDITIONAL_MAPPING = {
   "magnifyingglass": "search",
   "xmark.circle.fill": "cancel",
   "plus": "add",
+  "person.2.fill": "people",
 };
 
 // Merge mappings
