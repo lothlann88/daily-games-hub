@@ -2,6 +2,8 @@ import { useState } from "react";
 import { View, StyleSheet, TextInput, Pressable, Alert, KeyboardAvoidingView, Platform } from "react-native";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
+import { Image } from "expo-image";
+
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { useThemeColor } from "@/hooks/use-theme-color";
@@ -86,8 +88,16 @@ export default function OnboardingScreen() {
         style={styles.content}
       >
         <View style={styles.header}>
+          <Image
+            source={require("@/assets/images/icon.png")}
+            style={styles.logo}
+            contentFit="contain"
+          />
           <ThemedText type="title" style={styles.title}>
             Welcome to{"\n"}Daily Games Hub
+          </ThemedText>
+          <ThemedText style={styles.byline}>
+            by Serhan Handani
           </ThemedText>
           <ThemedText style={styles.subtitle}>
             Your personal hub for daily puzzle games, streak tracking, and friendly competition
@@ -173,10 +183,23 @@ const styles = StyleSheet.create({
   },
   header: {
     marginBottom: 48,
+    alignItems: "center",
+  },
+  logo: {
+    width: 100,
+    height: 100,
+    marginBottom: 24,
   },
   title: {
-    marginBottom: 16,
+    marginBottom: 12,
     textAlign: "center",
+  },
+  byline: {
+    fontSize: 16,
+    opacity: 0.6,
+    textAlign: "center",
+    fontStyle: "italic",
+    marginBottom: 16,
   },
   subtitle: {
     textAlign: "center",

@@ -321,4 +321,16 @@
 - [x] Add app heading
 - [x] Add "by Serhan Handani" credit
 - [x] Improve spacing and visual hierarchy
-- [ ] Test Vercel auto-deployment
+- [x] Test Vercel auto-deployment (checkpoint created, pushed to GitHub)
+
+## UI Improvements & Branding
+- [x] Fix version number (now pulls from app.config.ts dynamically)
+- [x] Add branding to register screen
+- [x] Add branding to forgot password screen
+- [x] Add branding to onboarding screen
+- [ ] Improve home screen header with logo
+- [ ] Add app info section to settings (version, creator, links)
+- [ ] Polish tab bar icons and labels
+- [ ] Improve empty states across the app
+- [ ] Add consistent spacing and visual hierarchy
+- [ ] Test all screens for branding consistency

@@ -14,6 +14,8 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 
+import { Image } from "expo-image";
+
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { IconSymbol } from "@/components/ui/icon-symbol";
@@ -88,6 +90,21 @@ export default function ForgotPasswordScreen() {
             <IconSymbol name="chevron.left" size={24} color={tintColor} />
             <ThemedText style={[styles.backText, { color: tintColor }]}>Back</ThemedText>
           </Pressable>
+
+          {/* Logo and Branding */}
+          <View style={styles.branding}>
+            <Image
+              source={require("@/assets/images/icon.png")}
+              style={styles.logo}
+              contentFit="contain"
+            />
+            <ThemedText type="title" style={styles.appTitle}>
+              Daily Games Hub
+            </ThemedText>
+            <ThemedText style={styles.byline}>
+              by Serhan Handani
+            </ThemedText>
+          </View>
 
           {/* Header */}
           <View style={styles.header}>
@@ -184,6 +201,27 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 24,
+  },
+  branding: {
+    alignItems: "center",
+    marginBottom: 32,
+  },
+  logo: {
+    width: 80,
+    height: 80,
+    marginBottom: 16,
+  },
+  appTitle: {
+    marginBottom: 4,
+    textAlign: "center",
+    fontSize: 28,
+    fontWeight: "bold",
+  },
+  byline: {
+    fontSize: 14,
+    opacity: 0.6,
+    textAlign: "center",
+    fontStyle: "italic",
   },
   backText: {
     fontSize: 16,

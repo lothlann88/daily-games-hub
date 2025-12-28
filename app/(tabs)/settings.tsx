@@ -12,6 +12,8 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 
+import Constants from "expo-constants";
+
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { usePreferences, useGames, useScores } from "@/hooks/use-storage";
@@ -437,7 +439,7 @@ export default function SettingsScreen() {
             <View style={styles.settingRowLeft}>
               <ThemedText>Version</ThemedText>
             </View>
-            <ThemedText style={styles.settingRowRight}>2.0.0</ThemedText>
+            <ThemedText style={styles.settingRowRight}>{Constants.expoConfig?.version || "1.0.0"}</ThemedText>
           </View>
           <View style={[styles.infoCard, { backgroundColor: cardBackground }]}>
             <ThemedText style={styles.infoText}>
