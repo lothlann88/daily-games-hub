@@ -2,12 +2,13 @@ import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Platform } from "react-native";
 
-const isServer = typeof window === "undefined";
+// Check if we're in a browser environment
+const isBrowser = typeof window !== "undefined";
 
 // Lazy-loaded Supabase client to avoid SSR errors
 let supabaseInstance: SupabaseClient | null = null;
 
-function getSupabaseClient(): SupabaseClient {
+function initializeSupabaseClient(): SupabaseClient {
   // Return existing instance if already created
   if (supabaseInstance) {
     return supabaseInstance;
@@ -19,7 +20,6 @@ function getSupabaseClient(): SupabaseClient {
   if (!supabaseUrl || !supabaseAnonKey) {
     console.warn("[Supabase] Missing credentials. Cloud features will be disabled.");
     // Return a dummy client that won't crash but won't work either
-    // This allows the app to build and run without Supabase
     supabaseInstance = createClient("https://placeholder.supabase.co", "placeholder-key", {
       auth: {
         autoRefreshToken: false,
@@ -30,23 +30,22 @@ function getSupabaseClient(): SupabaseClient {
     return supabaseInstance;
   }
 
-  // Avoid using AsyncStorage or persisting sessions during server-side rendering
-  // (e.g., when Vercel runs `expo export --platform web`). `@supabase/auth-js`
-  // tries to read from the provided storage during initialization, and the web
-  // version of AsyncStorage depends on `window`. That crashes SSR builds with
-  // "ReferenceError: window is not defined".
-  const authConfig = isServer
+  // Only use AsyncStorage and session persistence in browser environment
+  // During SSR (Vercel build), skip storage to avoid "window is not defined" errors
+  const authConfig = isBrowser
     ? {
-        autoRefreshToken: false,
-        persistSession: false,
-        detectSessionInUrl: false,
-      }
-    : {
         storage: AsyncStorage,
         autoRefreshToken: true,
         persistSession: true,
         detectSessionInUrl: Platform.OS === "web",
+      }
+    : {
+        autoRefreshToken: false,
+        persistSession: false,
+        detectSessionInUrl: false,
       };
+
+  console.log("[Supabase] Initializing client...", { isBrowser, hasUrl: !!supabaseUrl, hasKey: !!supabaseAnonKey });
 
   supabaseInstance = createClient(supabaseUrl, supabaseAnonKey, {
     auth: authConfig,
@@ -55,43 +54,49 @@ function getSupabaseClient(): SupabaseClient {
   return supabaseInstance;
 }
 
-// Export a Proxy that lazily initializes the client and properly binds methods
-export const supabase = new Proxy({} as SupabaseClient, {
-  get(target, prop) {
-    const client = getSupabaseClient();
-    const value = client[prop as keyof SupabaseClient];
-    
-    // If the property is a function, bind it to the client to preserve context
-    if (typeof value === "function") {
-      return value.bind(client);
-    }
-    
-    // If the property is an object (like 'auth' or 'from'), return a proxy for it too
-    // This ensures nested methods (like auth.signOut()) also get properly bound
-    if (typeof value === "object" && value !== null) {
-      return new Proxy(value, {
-        get(nestedTarget, nestedProp) {
-          const nestedValue = nestedTarget[nestedProp as keyof typeof nestedTarget];
-          
-          // Bind nested methods to preserve context
-          if (typeof nestedValue === "function") {
-            return (nestedValue as Function).bind(nestedTarget);
-          }
-          
-          return nestedValue;
-        },
-      });
-    }
-    
-    return value;
+// Export a function that returns the client (simplest approach)
+// This avoids Proxy complexity and ensures methods work correctly
+export function getSupabase(): SupabaseClient {
+  return initializeSupabaseClient();
+}
+
+// For backward compatibility, also export as 'supabase'
+// This getter ensures the client is initialized before use
+export const supabase = {
+  get auth() {
+    return initializeSupabaseClient().auth;
   },
-});
+  get from() {
+    return initializeSupabaseClient().from.bind(initializeSupabaseClient());
+  },
+  get storage() {
+    return initializeSupabaseClient().storage;
+  },
+  get functions() {
+    return initializeSupabaseClient().functions;
+  },
+  get channel() {
+    return initializeSupabaseClient().channel.bind(initializeSupabaseClient());
+  },
+  get removeChannel() {
+    return initializeSupabaseClient().removeChannel.bind(initializeSupabaseClient());
+  },
+  get removeAllChannels() {
+    return initializeSupabaseClient().removeAllChannels.bind(initializeSupabaseClient());
+  },
+  get getChannels() {
+    return initializeSupabaseClient().getChannels.bind(initializeSupabaseClient());
+  },
+  get rpc() {
+    return initializeSupabaseClient().rpc.bind(initializeSupabaseClient());
+  },
+};
 
 // Test connection
 export async function testSupabaseConnection(): Promise<boolean> {
   try {
-    const client = getSupabaseClient();
-    const { data, error} = await client.from("user_profiles").select("count").limit(1);
+    const client = initializeSupabaseClient();
+    const { data, error } = await client.from("user_profiles").select("count").limit(1);
     if (error) {
       console.error("[Supabase] Connection test failed:", error.message);
       return false;

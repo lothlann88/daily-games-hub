@@ -341,4 +341,12 @@
 - [x] Fix home page sync stuck
 - [x] Investigate Supabase client initialization in browser
 - [ ] Test all fixes on deployed Vercel app
-- [ ] Create checkpoint with bug fixes
+- [x] Create checkpoint with bug fixes
+
+## Additional Bug Fixes Needed
+- [x] Debug sign out button not working (replaced Proxy with getter-based approach)
+- [x] Debug friends tab not working (replaced Proxy with getter-based approach)
+- [x] Create test script to verify Supabase client methods
+- [x] Investigate if Proxy implementation needs different approach (simplified to getters)
+- [x] Test on local dev server before deploying
+- [ ] Create checkpoint and deploy to Vercel for user testing
