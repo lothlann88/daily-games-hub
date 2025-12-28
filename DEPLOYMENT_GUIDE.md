@@ -39,7 +39,7 @@ Replace `YOUR_USERNAME` with your GitHub username.
 3. Import your `daily-games-hub` repository
 4. Vercel will auto-detect the settings, but verify:
    - **Framework Preset**: Other
-   - **Build Command**: `npx expo export:web`
+   - **Build Command**: `npx expo export --platform web`
    - **Output Directory**: `dist`
    - **Install Command**: `pnpm install`
 
@@ -70,7 +70,7 @@ Replace `YOUR_USERNAME` with your GitHub username.
 2. Click "Add new site" → "Import an existing project"
 3. Choose GitHub and select your `daily-games-hub` repository
 4. Configure build settings:
-   - **Build command**: `npx expo export:web`
+   - **Build command**: `npx expo export --platform web`
    - **Publish directory**: `dist`
    - **Base directory**: (leave empty)
 

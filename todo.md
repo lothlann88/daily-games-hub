@@ -289,3 +289,8 @@
 - [x] Create comprehensive deployment guide
 - [x] Document Add to Home Screen instructions
 - [x] Create checkpoint for PWA configuration
+
+## Vercel Deployment Fix
+- [x] Update vercel.json for Metro bundler (Expo SDK 54)
+- [x] Update deployment guide with correct instructions
+- [x] Create checkpoint with fixed deployment config
