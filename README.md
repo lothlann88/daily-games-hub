@@ -321,3 +321,4 @@ For questions or issues, please [open an issue](https://github.com/lothlann88/da
 
 **Made with ❤️ for daily game enthusiasts**
 
+...
