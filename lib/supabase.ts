@@ -55,11 +55,35 @@ function getSupabaseClient(): SupabaseClient {
   return supabaseInstance;
 }
 
-// Export a getter function instead of the client directly
+// Export a Proxy that lazily initializes the client and properly binds methods
 export const supabase = new Proxy({} as SupabaseClient, {
   get(target, prop) {
     const client = getSupabaseClient();
-    return client[prop as keyof SupabaseClient];
+    const value = client[prop as keyof SupabaseClient];
+    
+    // If the property is a function, bind it to the client to preserve context
+    if (typeof value === "function") {
+      return value.bind(client);
+    }
+    
+    // If the property is an object (like 'auth' or 'from'), return a proxy for it too
+    // This ensures nested methods (like auth.signOut()) also get properly bound
+    if (typeof value === "object" && value !== null) {
+      return new Proxy(value, {
+        get(nestedTarget, nestedProp) {
+          const nestedValue = nestedTarget[nestedProp as keyof typeof nestedTarget];
+          
+          // Bind nested methods to preserve context
+          if (typeof nestedValue === "function") {
+            return (nestedValue as Function).bind(nestedTarget);
+          }
+          
+          return nestedValue;
+        },
+      });
+    }
+    
+    return value;
   },
 });
 

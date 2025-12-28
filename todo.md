@@ -333,4 +333,12 @@
 - [ ] Polish tab bar icons and labels
 - [ ] Improve empty states across the app
 - [ ] Add consistent spacing and visual hierarchy
-- [ ] Test all screens for branding consistency
+- [x] Create checkpoint for branding improvements
+
+## Critical Bug Fixes
+- [x] Fix sign out not working
+- [x] Fix friends list stuck on "loading friends"
+- [x] Fix home page sync stuck
+- [x] Investigate Supabase client initialization in browser
+- [ ] Test all fixes on deployed Vercel app
+- [ ] Create checkpoint with bug fixes
