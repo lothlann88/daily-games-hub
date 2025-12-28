@@ -294,3 +294,8 @@
 - [x] Update vercel.json for Metro bundler (Expo SDK 54)
 - [x] Update deployment guide with correct instructions
 - [x] Create checkpoint with fixed deployment config
+
+## Fix Window Reference Error
+- [x] Find files accessing window during SSR
+- [x] Add proper browser environment checks (lib/auth.ts, lib/manus-runtime.ts)
+- [x] Create checkpoint with fixes

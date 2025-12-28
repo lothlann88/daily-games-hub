@@ -34,7 +34,7 @@ interface SpacePreviewerMessage {
 }
 
 function isInIframe(): boolean {
-  if (Platform.OS !== "web") return false;
+  if (Platform.OS !== "web" || typeof window === "undefined") return false;
   try {
     return window.self !== window.top;
   } catch {
@@ -54,7 +54,9 @@ function sendToParent(type: MessageType, payload: Record<string, unknown> = {}):
     type: "SpacePreviewerChannel",
     payload: { type, from: "content", to: "container", payload },
   };
-  window.parent.postMessage(message, "*");
+  if (typeof window !== "undefined") {
+    window.parent.postMessage(message, "*");
+  }
   log(`Sent to parent: ${type}`);
 }
 
@@ -80,7 +82,7 @@ function handleMessage(event: MessageEvent<unknown>): void {
 
   if (payload.type === "setSafeAreaInsets" && isValidInsets(payload.payload) && safeAreaCallback) {
     const insets = payload.payload;
-    const frame = { x: 0, y: 0, width: window.innerWidth, height: window.innerHeight };
+    const frame = { x: 0, y: 0, width: typeof window !== "undefined" ? window.innerWidth : 0, height: typeof window !== "undefined" ? window.innerHeight : 0 };
     safeAreaCallback({ insets, frame });
     log(
       `Received safe area insets from parent: top=${insets.top}, bottom=${insets.bottom}, left=${insets.left}, right=${insets.right}`,
@@ -109,7 +111,9 @@ export function initManusRuntime(): void {
   initialized = true;
 
   log("initManusRuntime called");
-  window.addEventListener("message", handleMessage);
+  if (typeof window !== "undefined") {
+    window.addEventListener("message", handleMessage);
+  }
   sendToParent("appDevServerReady", {});
 }
 

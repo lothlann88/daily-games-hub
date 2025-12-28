@@ -73,7 +73,7 @@ export async function getUserInfo(): Promise<User | null> {
     console.log("[Auth] Getting user info...");
 
     let info: string | null = null;
-    if (Platform.OS === "web") {
+    if (Platform.OS === "web" && typeof window !== "undefined") {
       // Use localStorage for web
       info = window.localStorage.getItem(USER_INFO_KEY);
     } else {
@@ -98,7 +98,7 @@ export async function setUserInfo(user: User): Promise<void> {
   try {
     console.log("[Auth] Setting user info...", user);
 
-    if (Platform.OS === "web") {
+    if (Platform.OS === "web" && typeof window !== "undefined") {
       // Use localStorage for web
       window.localStorage.setItem(USER_INFO_KEY, JSON.stringify(user));
       console.log("[Auth] User info stored in localStorage successfully");
@@ -115,7 +115,7 @@ export async function setUserInfo(user: User): Promise<void> {
 
 export async function clearUserInfo(): Promise<void> {
   try {
-    if (Platform.OS === "web") {
+    if (Platform.OS === "web" && typeof window !== "undefined") {
       // Use localStorage for web
       window.localStorage.removeItem(USER_INFO_KEY);
       return;
