@@ -45,8 +45,8 @@ Replace `YOUR_USERNAME` with your GitHub username.
 
 5. **Add Environment Variables** (IMPORTANT):
    Click "Environment Variables" and add:
-   - `SUPABASE_URL` = (your Supabase project URL)
-   - `SUPABASE_ANON_KEY` = (your Supabase anon key)
+   - `EXPO_PUBLIC_SUPABASE_URL` = (your Supabase project URL)
+   - `EXPO_PUBLIC_SUPABASE_ANON_KEY` = (your Supabase anon key)
 
 6. Click "Deploy"
 
@@ -76,7 +76,7 @@ Replace `YOUR_USERNAME` with your GitHub username.
 
 5. **Add Environment Variables**:
    - Go to Site settings → Environment variables
-   - Add `SUPABASE_URL` and `SUPABASE_ANON_KEY`
+   - Add `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY`
 
 6. Click "Deploy site"
 

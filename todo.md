@@ -299,3 +299,12 @@
 - [x] Find files accessing window during SSR
 - [x] Add proper browser environment checks (lib/auth.ts, lib/manus-runtime.ts)
 - [x] Create checkpoint with fixes
+
+## Fix Vercel Environment Variables Not Loading
+- [x] Investigate why SUPABASE credentials are not being loaded
+- [x] Update environment variable configuration for Expo web builds (use EXPO_PUBLIC_ prefix)
+- [x] Ensure env vars are properly exposed to client-side code
+- [x] Update DEPLOYMENT_GUIDE.md with correct variable names
+- [ ] User needs to update Vercel env vars with EXPO_PUBLIC_ prefix
+- [ ] Test deployment after user updates variables
+- [ ] Create checkpoint with fixes
