@@ -308,3 +308,10 @@
 - [ ] User needs to update Vercel env vars with EXPO_PUBLIC_ prefix
 - [ ] Test deployment after user updates variables
 - [ ] Create checkpoint with fixes
+
+## Fix Supabase Client SSR Initialization
+- [x] Make Supabase client lazy-loaded
+- [x] Only initialize when actually needed in browser
+- [x] Use Proxy to defer initialization
+- [ ] Test build succeeds
+- [ ] Create checkpoint
