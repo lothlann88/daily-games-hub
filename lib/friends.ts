@@ -83,9 +83,11 @@ export async function cancelFriendRequest(requestId: string): Promise<void> {
  * Get incoming friend requests (requests sent to current user)
  */
 export async function getIncomingFriendRequests(): Promise<FriendRequestWithProfile[]> {
+  console.log("[getIncomingFriendRequests] Starting...");
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  console.log("[getIncomingFriendRequests] User:", { hasUser: !!user, userId: user?.id });
   if (!user) return [];
 
   const { data, error } = await supabase
@@ -112,9 +114,11 @@ export async function getIncomingFriendRequests(): Promise<FriendRequestWithProf
  * Get outgoing friend requests (requests sent by current user)
  */
 export async function getOutgoingFriendRequests(): Promise<FriendRequestWithProfile[]> {
+  console.log("[getOutgoingFriendRequests] Starting...");
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  console.log("[getOutgoingFriendRequests] User:", { hasUser: !!user, userId: user?.id });
   if (!user) return [];
 
   const { data, error } = await supabase
@@ -147,38 +151,60 @@ export async function getOutgoingFriendRequests(): Promise<FriendRequestWithProf
  * Get list of friends
  */
 export async function getFriends(): Promise<Friend[]> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return [];
+  console.log("[getFriends] Starting...");
+  
+  try {
+    console.log("[getFriends] Calling supabase.auth.getUser()...");
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    
+    console.log("[getFriends] User:", { hasUser: !!user, userId: user?.id });
+    if (!user) {
+      console.log("[getFriends] No user, returning empty array");
+      return [];
+    }
 
-  const { data, error } = await supabase
-    .from("friendships")
-    .select(
+    console.log("[getFriends] Querying friendships table...");
+    const { data, error } = await supabase
+      .from("friendships")
+      .select(
+        `
+        id,
+        created_at,
+        friend:user_profiles!friendships_friend_id_fkey(id, name, username, avatar_url, is_private)
       `
-      id,
-      created_at,
-      friend:user_profiles!friendships_friend_id_fkey(id, name, username, avatar_url, is_private)
-    `
-    )
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: false });
+      )
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false });
 
-  if (error) throw error;
+    console.log("[getFriends] Query result:", { hasData: !!data, hasError: !!error, dataLength: data?.length });
+    
+    if (error) {
+      console.error("[getFriends] Query error:", error);
+      throw error;
+    }
 
-  return (data || []).map((friendship) => {
-    const friendProfile = Array.isArray(friendship.friend)
-      ? friendship.friend[0]
-      : friendship.friend;
-    return {
-      id: friendProfile.id,
-      name: friendProfile.name,
-      username: friendProfile.username,
-      avatar_url: friendProfile.avatar_url,
-      is_private: friendProfile.is_private,
-      friendship_created_at: friendship.created_at,
-    };
-  });
+    const friends = (data || []).map((friendship) => {
+      const friendProfile = Array.isArray(friendship.friend)
+        ? friendship.friend[0]
+        : friendship.friend;
+      return {
+        id: friendProfile.id,
+        name: friendProfile.name,
+        username: friendProfile.username,
+        avatar_url: friendProfile.avatar_url,
+        is_private: friendProfile.is_private,
+        friendship_created_at: friendship.created_at,
+      };
+    });
+    
+    console.log("[getFriends] Returning", friends.length, "friends");
+    return friends;
+  } catch (error) {
+    console.error("[getFriends] Caught error:", error);
+    throw error;
+  }
 }
 
 /**

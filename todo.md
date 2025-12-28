@@ -358,4 +358,12 @@
 - [x] Add Supabase configuration validation
 - [x] Add detailed console logging for debugging
 - [ ] Test registration with valid credentials on deployed app
-- [ ] Create checkpoint with working registration
+- [x] Create checkpoint with working registration
+
+## Friends Tab Bug Fix
+- [x] Investigate friends tab not working
+- [x] Check lib/friends.ts for Supabase client issues
+- [x] Add comprehensive logging to friends functions
+- [x] Add error details to friends screen
+- [ ] Test friends list loading on deployed app
+- [ ] Create checkpoint with debugging improvements

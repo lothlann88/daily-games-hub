@@ -36,19 +36,33 @@ export default function FriendsScreen() {
 
   const loadData = useCallback(async () => {
     try {
+      console.log("[Friends] Starting to load friends data...");
+      
       const [friendsData, incomingData, outgoingData] = await Promise.all([
         friendsLib.getFriends(),
         friendsLib.getIncomingFriendRequests(),
         friendsLib.getOutgoingFriendRequests(),
       ]);
 
+      console.log("[Friends] Data loaded:", {
+        friendsCount: friendsData.length,
+        incomingCount: incomingData.length,
+        outgoingCount: outgoingData.length,
+      });
+
       setFriends(friendsData);
       setIncomingRequests(incomingData);
       setOutgoingRequests(outgoingData);
-    } catch (error) {
-      console.error("Error loading friends data:", error);
-      Alert.alert("Error", "Failed to load friends data");
+    } catch (error: any) {
+      console.error("[Friends] Error loading friends data:", error);
+      console.error("[Friends] Error details:", {
+        message: error?.message,
+        stack: error?.stack,
+        name: error?.name,
+      });
+      Alert.alert("Error", `Failed to load friends data: ${error?.message || "Unknown error"}`);
     } finally {
+      console.log("[Friends] Load complete, setting loading to false");
       setLoading(false);
       setRefreshing(false);
     }
