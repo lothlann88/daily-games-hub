@@ -315,3 +315,10 @@
 - [x] Use Proxy to defer initialization
 - [ ] Test build succeeds
 - [ ] Create checkpoint
+
+## Login Screen UI Improvements
+- [x] Add Daily Games Hub logo at top
+- [x] Add app heading
+- [x] Add "by Serhan Handani" credit
+- [x] Improve spacing and visual hierarchy
+- [ ] Test Vercel auto-deployment

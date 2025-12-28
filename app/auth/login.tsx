@@ -14,6 +14,8 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 
+import { Image } from "expo-image";
+
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { useThemeColor } from "@/hooks/use-theme-color";
@@ -85,9 +87,24 @@ export default function LoginScreen() {
           ]}
           showsVerticalScrollIndicator={false}
         >
+          {/* Logo and Branding */}
+          <View style={styles.branding}>
+            <Image
+              source={require("@/assets/images/icon.png")}
+              style={styles.logo}
+              contentFit="contain"
+            />
+            <ThemedText type="title" style={styles.appTitle}>
+              Daily Games Hub
+            </ThemedText>
+            <ThemedText style={styles.byline}>
+              by Serhan Handani
+            </ThemedText>
+          </View>
+
           {/* Header */}
           <View style={styles.header}>
-            <ThemedText type="title" style={styles.title}>
+            <ThemedText type="subtitle" style={styles.title}>
               Welcome Back
             </ThemedText>
             <ThemedText style={styles.subtitle}>
@@ -195,8 +212,29 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 24,
   },
+  branding: {
+    alignItems: "center",
+    marginBottom: 40,
+  },
+  logo: {
+    width: 80,
+    height: 80,
+    marginBottom: 16,
+  },
+  appTitle: {
+    marginBottom: 4,
+    textAlign: "center",
+    fontSize: 28,
+    fontWeight: "bold",
+  },
+  byline: {
+    fontSize: 14,
+    opacity: 0.6,
+    textAlign: "center",
+    fontStyle: "italic",
+  },
   header: {
-    marginBottom: 32,
+    marginBottom: 24,
     alignItems: "center",
   },
   title: {
