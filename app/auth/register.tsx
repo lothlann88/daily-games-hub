@@ -61,23 +61,73 @@ export default function RegisterScreen() {
   const handleRegister = async () => {
     if (!validateForm()) return;
 
+    // Check if Supabase is properly configured
+    const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+    
+    console.log("[Register] Supabase config:", { 
+      hasUrl: !!supabaseUrl, 
+      hasKey: !!supabaseKey,
+      url: supabaseUrl?.substring(0, 20) + "..."
+    });
+    
+    if (!supabaseUrl || !supabaseKey) {
+      Alert.alert(
+        "Configuration Error",
+        "The app is not properly configured. Please contact support."
+      );
+      return;
+    }
+
+    console.log("[Register] Starting registration for:", email.trim());
     setLoading(true);
+    
     try {
-      const { data, error } = await supabase.auth.signUp({
+      console.log("[Register] Calling supabase.auth.signUp...");
+      
+      // Add timeout to prevent infinite hanging
+      const signUpPromise = supabase.auth.signUp({
         email: email.trim(),
         password,
       });
+      
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error("Registration timeout - please try again")), 30000)
+      );
+      
+      const { data, error } = await Promise.race([signUpPromise, timeoutPromise]) as any;
+      
+      console.log("[Register] Response received:", { 
+        hasData: !!data, 
+        hasUser: !!data?.user,
+        userId: data?.user?.id,
+        hasError: !!error,
+        errorMessage: error?.message 
+      });
 
       if (error) {
+        console.error("[Register] Registration error:", error);
         Alert.alert("Registration Failed", error.message);
         return;
       }
 
+      if (!data?.user) {
+        console.error("[Register] No user data returned");
+        Alert.alert("Error", "Registration failed - no user data received");
+        return;
+      }
+
+      console.log("[Register] Registration successful:", data.user.id);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      
+      // Check if email confirmation is required
+      const needsConfirmation = data.user.identities?.length === 0;
       
       Alert.alert(
         "Success!",
-        "Your account has been created. Please check your email to verify your account.",
+        needsConfirmation 
+          ? "Your account has been created. Please check your email to verify your account before signing in."
+          : "Your account has been created successfully! You can now sign in.",
         [
           {
             text: "OK",
@@ -85,11 +135,14 @@ export default function RegisterScreen() {
           },
         ]
       );
-
-      console.log("[Auth] Registration successful:", data.user?.id);
     } catch (error: any) {
-      Alert.alert("Error", error.message || "An unexpected error occurred");
+      console.error("[Register] Caught error:", error);
+      Alert.alert(
+        "Error", 
+        error.message || "An unexpected error occurred. Please check your internet connection and try again."
+      );
     } finally {
+      console.log("[Register] Cleaning up, setting loading to false");
       setLoading(false);
     }
   };
