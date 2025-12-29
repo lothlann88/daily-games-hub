@@ -366,4 +366,13 @@
 - [x] Add comprehensive logging to friends functions
 - [x] Add error details to friends screen
 - [ ] Test friends list loading on deployed app
-- [ ] Create checkpoint with debugging improvements
+- [x] Create checkpoint with debugging improvements
+
+## Navigation and Sync Bug Fixes
+- [x] Investigate game links scrolling to top instead of opening
+- [x] Check game card Pressable onPress handler (code is correct)
+- [x] Investigate sync hanging issue
+- [x] Add 60-second timeout to sync operations
+- [x] Add detailed logging to sync process
+- [x] Add logging to game navigation
+- [ ] Create checkpoint with fixes

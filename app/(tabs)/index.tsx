@@ -79,8 +79,15 @@ export default function HomeScreen() {
   };
 
   const handleGamePress = (game: Game) => {
+    console.log("[Home] Game pressed:", { gameId: game.id, gameName: game.name });
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.push({ pathname: "/game-detail" as any, params: { gameId: game.id } });
+    console.log("[Home] Navigating to game detail...");
+    try {
+      router.push({ pathname: "/game-detail" as any, params: { gameId: game.id } });
+      console.log("[Home] Navigation initiated");
+    } catch (error) {
+      console.error("[Home] Navigation error:", error);
+    }
   };
 
   const handleAddGame = () => {

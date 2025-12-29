@@ -335,20 +335,42 @@ export async function hasPerformedInitialSync(): Promise<boolean> {
 
 /**
  * Main sync function: Decides whether to do initial or full sync
+ * Includes 60-second timeout to prevent hanging
  */
 export async function syncData(): Promise<void> {
+  console.log("[Sync] Starting sync process...");
+  
   try {
-    const hasInitialSync = await hasPerformedInitialSync();
+    // Add timeout to prevent infinite hanging
+    const syncPromise = (async () => {
+      console.log("[Sync] Checking if initial sync has been performed...");
+      const hasInitialSync = await hasPerformedInitialSync();
+      console.log("[Sync] Has initial sync:", hasInitialSync);
 
-    if (!hasInitialSync) {
-      // First time syncing - upload local data
-      await performInitialSync();
-    } else {
-      // Subsequent sync - download and merge
-      await performFullSync();
-    }
-  } catch (error) {
+      if (!hasInitialSync) {
+        console.log("[Sync] Performing initial sync (upload local data)...");
+        await performInitialSync();
+        console.log("[Sync] Initial sync completed");
+      } else {
+        console.log("[Sync] Performing full sync (download and merge)...");
+        await performFullSync();
+        console.log("[Sync] Full sync completed");
+      }
+    })();
+
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("Sync timeout - operation took longer than 60 seconds")), 60000)
+    );
+
+    await Promise.race([syncPromise, timeoutPromise]);
+    console.log("[Sync] Sync process completed successfully");
+  } catch (error: any) {
     console.error("[Sync] Error syncing data:", error);
+    console.error("[Sync] Error details:", {
+      message: error?.message,
+      name: error?.name,
+      stack: error?.stack,
+    });
     throw error;
   }
 }
