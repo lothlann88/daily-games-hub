@@ -133,8 +133,46 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
-    router.replace("/auth/login" as any);
+    try {
+      console.log("[Auth] Sign out initiated");
+      
+      // Call Supabase sign out
+      console.log("[Auth] Calling supabase.auth.signOut()...");
+      const { error } = await supabase.auth.signOut();
+      
+      if (error) {
+        console.error("[Auth] Sign out error:", error);
+        throw error;
+      }
+      
+      console.log("[Auth] Sign out successful, clearing state...");
+      
+      // Clear local state
+      setUser(null);
+      setSession(null);
+      setSyncing(false);
+      setLastSyncTime(null);
+      
+      console.log("[Auth] Redirecting to login...");
+      router.replace("/auth/login" as any);
+      
+      console.log("[Auth] Sign out complete");
+    } catch (error: any) {
+      console.error("[Auth] Sign out failed:", error);
+      console.error("[Auth] Error details:", {
+        message: error?.message,
+        name: error?.name,
+        stack: error?.stack,
+      });
+      
+      // Even if sign out fails, clear local state and redirect
+      console.log("[Auth] Forcing local sign out despite error...");
+      setUser(null);
+      setSession(null);
+      setSyncing(false);
+      setLastSyncTime(null);
+      router.replace("/auth/login" as any);
+    }
   };
 
   return (

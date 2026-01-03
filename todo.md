@@ -386,4 +386,20 @@
 - [x] Add visual feedback (loading states, error alerts)
 - [x] Create auth test page for easy diagnosis
 - [ ] User needs to test with auth-test page
-- [ ] Create checkpoint with improved auth flow
+- [x] Create checkpoint with improved auth flow
+
+## Email Confirmation Redirect Issue
+- [ ] Fix Supabase Site URL to point to production instead of localhost
+- [ ] Update Supabase redirect URLs configuration
+- [ ] Manually confirm wife's email in Supabase dashboard
+- [ ] Test email confirmation flow after fix
+- [ ] Document Supabase URL configuration in deployment guide
+
+## Sign Out Button Not Working
+- [x] Investigate sign out implementation in auth context
+- [x] Check if supabase.auth.signOut() is being called correctly
+- [x] Add error handling and logging to sign out
+- [x] Add fallback to clear local state even if Supabase fails
+- [x] Add comprehensive console logging
+- [ ] Test sign out functionality on deployed app
+- [ ] Create checkpoint with working sign out
