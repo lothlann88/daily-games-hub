@@ -411,7 +411,15 @@
 - [x] Add check to prevent multiple simultaneous login attempts
 - [x] Add comprehensive console logging
 - [ ] Test with wife's credentials on deployed app
-- [ ] Create checkpoint with fix
+- [x] Create checkpoint with fix
 
 ## Hide index-old Page
 - [x] Remove index-old from app navigation (deleted file)
+
+## Display Vercel Deployment Version
+- [x] Add version display using Vercel environment variables
+- [x] Show git commit hash or version on home screen
+- [x] Style version indicator (small, subtle text below title)
+- [ ] Add EXPO_PUBLIC_VERCEL_GIT_COMMIT_SHA to Vercel env vars
+- [ ] Test on deployed app
+- [ ] Create checkpoint with version display

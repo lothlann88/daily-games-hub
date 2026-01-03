@@ -213,6 +213,12 @@ export default function HomeScreen() {
       )}
 
       <ThemedText type="title" style={styles.mainTitle}>Daily Games Hub</ThemedText>
+      
+      {/* Version indicator */}
+      <ThemedText style={styles.versionText}>
+        v{process.env.EXPO_PUBLIC_VERCEL_GIT_COMMIT_SHA?.substring(0, 7) || "1.0.0"}
+      </ThemedText>
+      
       <ThemedText style={styles.description}>
         Your central hub for daily puzzle games. Track scores, build streaks, and compete with friends across 24+ games.
       </ThemedText>
@@ -427,13 +433,19 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   mainTitle: {
-    marginTop: 8,
+    marginBottom: 8,
+  },
+  versionText: {
+    fontSize: 12,
+    opacity: 0.5,
+    marginTop: -4,
+    marginBottom: 8,
   },
   description: {
-    fontSize: 15,
-    lineHeight: 22,
-    opacity: 0.7,
-    marginTop: 4,
+    fontSize: 16,
+    lineHeight: 24,
+    opacity: 0.8,
+    marginBottom: 4,
   },
   subtitle: {
     fontSize: 14,
