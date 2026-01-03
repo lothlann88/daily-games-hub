@@ -315,8 +315,6 @@ For questions or issues, please [open an issue](https://github.com/lothlann88/da
 - [ ] Streak freeze/protection
 - [ ] Weekly summary notifications
 
-# test to try to fix the login issue.
-
-
+...
 
 **Made with ❤️ for daily game enthusiasts**
