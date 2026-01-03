@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { useRouter, useSegments } from "expo-router";
 import { User, Session } from "@supabase/supabase-js";
-import { supabase } from "@/lib/supabase";
+import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { hasCompletedOnboarding } from "@/lib/storage";
 import { syncData } from "@/lib/sync";
 
@@ -136,13 +136,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       console.log("[Auth] Sign out initiated");
       
-      // Call Supabase sign out
-      console.log("[Auth] Calling supabase.auth.signOut()...");
-      const { error } = await supabase.auth.signOut();
-      
-      if (error) {
-        console.error("[Auth] Sign out error:", error);
-        throw error;
+      // Check if Supabase is configured
+      if (!isSupabaseConfigured()) {
+        console.warn("[Auth] Supabase not configured, skipping remote sign out");
+        // Skip Supabase call but still clear local state
+      } else {
+        // Call Supabase sign out
+        console.log("[Auth] Calling supabase.auth.signOut()...");
+        const { error } = await supabase.auth.signOut();
+        
+        if (error) {
+          console.error("[Auth] Sign out error:", error);
+          throw error;
+        }
       }
       
       console.log("[Auth] Sign out successful, clearing state...");

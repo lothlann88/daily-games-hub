@@ -422,4 +422,17 @@
 - [x] Style version indicator (small, subtle text below title)
 - [ ] Add EXPO_PUBLIC_VERCEL_GIT_COMMIT_SHA to Vercel env vars
 - [ ] Test on deployed app
-- [ ] Create checkpoint with version display
+- [x] Create checkpoint with version display
+
+## Critical Auth Fixes (AI Analysis)
+- [x] Replace placeholder Supabase client with error-throwing guard
+- [x] Add explicit navigation after successful sign-in (don't rely only on listener)
+- [x] Add inline error messages for missing Supabase config
+- [x] Add explicit error handling for invalid credentials
+- [x] Add explicit error handling for unconfirmed email
+- [x] Add explicit error handling for too many requests
+- [x] Short-circuit signOut with config guard
+- [x] Add isSupabaseConfigured() and getSupabaseConfigError() helpers
+- [x] Display config error banner on login screen
+- [ ] Test all auth flows on deployed app with proper credentials
+- [ ] Create checkpoint with critical auth fixes

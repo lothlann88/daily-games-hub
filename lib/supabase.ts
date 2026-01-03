@@ -7,6 +7,7 @@ const isBrowser = typeof window !== "undefined";
 
 // Lazy-loaded Supabase client to avoid SSR errors
 let supabaseInstance: SupabaseClient | null = null;
+let configError: string | null = null;
 
 function initializeSupabaseClient(): SupabaseClient {
   // Return existing instance if already created
@@ -18,8 +19,12 @@ function initializeSupabaseClient(): SupabaseClient {
   const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || "";
 
   if (!supabaseUrl || !supabaseAnonKey) {
-    console.warn("[Supabase] Missing credentials. Cloud features will be disabled.");
-    // Return a dummy client that won't crash but won't work either
+    const error = "Supabase configuration missing. Please set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY environment variables.";
+    console.error("[Supabase]", error);
+    configError = error;
+    
+    // Create a minimal dummy client that will throw errors on use
+    // This prevents crashes during SSR but makes auth failures explicit
     supabaseInstance = createClient("https://placeholder.supabase.co", "placeholder-key", {
       auth: {
         autoRefreshToken: false,
@@ -29,6 +34,9 @@ function initializeSupabaseClient(): SupabaseClient {
     });
     return supabaseInstance;
   }
+
+  // Clear any previous config error
+  configError = null;
 
   // Only use AsyncStorage and session persistence in browser environment
   // During SSR (Vercel build), skip storage to avoid "window is not defined" errors
@@ -52,6 +60,21 @@ function initializeSupabaseClient(): SupabaseClient {
   });
 
   return supabaseInstance;
+}
+
+// Check if Supabase is properly configured
+export function isSupabaseConfigured(): boolean {
+  const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || "";
+  const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || "";
+  return !!(supabaseUrl && supabaseAnonKey && supabaseUrl !== "https://placeholder.supabase.co");
+}
+
+// Get configuration error message if any
+export function getSupabaseConfigError(): string | null {
+  if (!isSupabaseConfigured()) {
+    return "Cloud login is unavailable—missing Supabase configuration. Please contact support.";
+  }
+  return null;
 }
 
 // Export a function that returns the client (simplest approach)
@@ -95,6 +118,11 @@ export const supabase = {
 // Test connection
 export async function testSupabaseConnection(): Promise<boolean> {
   try {
+    if (!isSupabaseConfigured()) {
+      console.error("[Supabase] Cannot test connection: configuration missing");
+      return false;
+    }
+    
     const client = initializeSupabaseClient();
     const { data, error } = await client.from("user_profiles").select("count").limit(1);
     if (error) {

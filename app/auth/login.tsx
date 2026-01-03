@@ -19,12 +19,13 @@ import { Image } from "expo-image";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { useThemeColor } from "@/hooks/use-theme-color";
-import { supabase } from "@/lib/supabase";
+import { supabase, isSupabaseConfigured, getSupabaseConfigError } from "@/lib/supabase";
 
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [configError, setConfigError] = useState<string | null>(null);
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const tintColor = useThemeColor({}, "tint");
@@ -32,10 +33,17 @@ export default function LoginScreen() {
   const borderColor = useThemeColor({}, "cardBorder");
   const inputBackground = useThemeColor({ light: "#FFFFFF", dark: "#2C2C2E" }, "background");
 
-  // Reset loading state on mount to prevent stuck state
+  // Reset loading state and check Supabase config on mount
   useEffect(() => {
     console.log("[Login] Screen mounted, resetting loading state");
     setLoading(false);
+    
+    // Check if Supabase is configured
+    const error = getSupabaseConfigError();
+    if (error) {
+      console.error("[Login] Supabase configuration error:", error);
+      setConfigError(error);
+    }
   }, []);
 
   const handleLogin = async () => {
@@ -45,6 +53,13 @@ export default function LoginScreen() {
     
     if (loading) {
       console.log("[Login] Already loading, ignoring click");
+      return;
+    }
+    
+    // Check Supabase configuration before attempting login
+    if (configError) {
+      console.error("[Login] Cannot login: Supabase not configured");
+      Alert.alert("Configuration Error", configError);
       return;
     }
     
@@ -81,7 +96,21 @@ export default function LoginScreen() {
 
       if (error) {
         console.error("[Login] Login error:", error);
-        Alert.alert("Login Failed", error.message || "Unable to sign in. Please check your credentials.");
+        
+        // Handle specific error cases
+        let errorMessage = error.message || "Unable to sign in. Please check your credentials.";
+        
+        if (error.message?.toLowerCase().includes("invalid login credentials")) {
+          errorMessage = "Invalid email or password. Please check your credentials and try again.";
+        } else if (error.message?.toLowerCase().includes("email not confirmed")) {
+          errorMessage = "Please verify your email address. Check your inbox for a confirmation link.";
+        } else if (error.message?.toLowerCase().includes("user not found")) {
+          errorMessage = "No account found with this email. Please sign up first.";
+        } else if (error.message?.toLowerCase().includes("too many requests")) {
+          errorMessage = "Too many login attempts. Please wait a few minutes and try again.";
+        }
+        
+        Alert.alert("Login Failed", errorMessage);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         return;
       }
@@ -95,7 +124,10 @@ export default function LoginScreen() {
       console.log("[Login] Login successful:", data.user.id);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       
-      // Navigation will be handled by auth state listener in root layout
+      // Explicitly navigate to home screen after successful login
+      // Don't rely solely on auth state listener which may not fire
+      console.log("[Login] Navigating to home screen...");
+      router.replace("/(tabs)");
     } catch (error: any) {
       console.error("[Login] Caught exception:", error);
       console.error("[Login] Error details:", {
@@ -162,6 +194,15 @@ export default function LoginScreen() {
               Sign in to sync your games across devices
             </ThemedText>
           </View>
+
+          {/* Configuration Error Message */}
+          {configError && (
+            <View style={[styles.errorBanner, { backgroundColor: "#FEE2E2", borderColor: "#EF4444" }]}>
+              <ThemedText style={[styles.errorText, { color: "#DC2626" }]}>
+                ⚠️ {configError}
+              </ThemedText>
+            </View>
+          )}
 
           {/* Login Form */}
           <View style={[styles.form, { backgroundColor: cardBackground, borderColor }]}>
@@ -297,6 +338,18 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     opacity: 0.7,
     textAlign: "center",
+  },
+  errorBanner: {
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 16,
+  },
+  errorText: {
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: "center",
+    fontWeight: "500",
   },
   form: {
     borderRadius: 16,
