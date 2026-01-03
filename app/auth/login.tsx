@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   StyleSheet,
   View,
@@ -32,9 +32,21 @@ export default function LoginScreen() {
   const borderColor = useThemeColor({}, "cardBorder");
   const inputBackground = useThemeColor({ light: "#FFFFFF", dark: "#2C2C2E" }, "background");
 
+  // Reset loading state on mount to prevent stuck state
+  useEffect(() => {
+    console.log("[Login] Screen mounted, resetting loading state");
+    setLoading(false);
+  }, []);
+
   const handleLogin = async () => {
     console.log("[Login] Login button clicked");
+    console.log("[Login] Current loading state:", loading);
     console.log("[Login] Email:", email.trim());
+    
+    if (loading) {
+      console.log("[Login] Already loading, ignoring click");
+      return;
+    }
     
     if (!email.trim() || !password.trim()) {
       console.log("[Login] Validation failed: empty email or password");
@@ -44,6 +56,13 @@ export default function LoginScreen() {
 
     console.log("[Login] Starting login process...");
     setLoading(true);
+    
+    // Add timeout to prevent infinite loading
+    const timeoutId = setTimeout(() => {
+      console.error("[Login] Login timeout after 30 seconds");
+      setLoading(false);
+      Alert.alert("Timeout", "Login is taking too long. Please try again.");
+    }, 30000);
     
     try {
       console.log("[Login] Calling supabase.auth.signInWithPassword...");
@@ -87,6 +106,7 @@ export default function LoginScreen() {
       Alert.alert("Error", error.message || "An unexpected error occurred during login.");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
+      clearTimeout(timeoutId);
       console.log("[Login] Setting loading to false");
       setLoading(false);
     }

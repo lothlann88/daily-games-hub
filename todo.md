@@ -402,4 +402,16 @@
 - [x] Add fallback to clear local state even if Supabase fails
 - [x] Add comprehensive console logging
 - [ ] Test sign out functionality on deployed app
-- [ ] Create checkpoint with working sign out
+- [x] Create checkpoint with working sign out
+
+## Wife's Sign In Not Working
+- [x] Investigate why sign in button does nothing for wife
+- [x] Check if loading state is stuck (added guard and reset on mount)
+- [x] Add 30-second timeout to prevent infinite loading
+- [x] Add check to prevent multiple simultaneous login attempts
+- [x] Add comprehensive console logging
+- [ ] Test with wife's credentials on deployed app
+- [ ] Create checkpoint with fix
+
+## Hide index-old Page
+- [x] Remove index-old from app navigation (deleted file)
