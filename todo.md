@@ -435,4 +435,14 @@
 - [x] Add isSupabaseConfigured() and getSupabaseConfigError() helpers
 - [x] Display config error banner on login screen
 - [ ] Test all auth flows on deployed app with proper credentials
-- [ ] Create checkpoint with critical auth fixes
+- [x] Create checkpoint with critical auth fixes
+
+## Forgot Password Flow
+- [x] Create forgot password screen with email input (already existed)
+- [x] Implement password reset email sending via Supabase
+- [x] Add success/error handling and user feedback
+- [x] Add Supabase configuration checks
+- [x] Add comprehensive error logging
+- [x] Create password reset confirmation screen (built into forgot-password.tsx)
+- [ ] Test password reset flow on deployed app
+- [ ] Create checkpoint with forgot password feature

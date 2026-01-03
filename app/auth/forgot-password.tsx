@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   StyleSheet,
   View,
@@ -20,12 +20,13 @@ import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useThemeColor } from "@/hooks/use-theme-color";
-import { supabase } from "@/lib/supabase";
+import { supabase, isSupabaseConfigured, getSupabaseConfigError } from "@/lib/supabase";
 
 export default function ForgotPasswordScreen() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
+  const [configError, setConfigError] = useState<string | null>(null);
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const tintColor = useThemeColor({}, "tint");
@@ -33,32 +34,75 @@ export default function ForgotPasswordScreen() {
   const borderColor = useThemeColor({}, "cardBorder");
   const inputBackground = useThemeColor({ light: "#FFFFFF", dark: "#2C2C2E" }, "background");
 
+  // Check Supabase config on mount
+  useEffect(() => {
+    const error = getSupabaseConfigError();
+    if (error) {
+      console.error("[ForgotPassword] Supabase configuration error:", error);
+      setConfigError(error);
+    }
+  }, []);
+
   const handleResetPassword = async () => {
+    console.log("[ForgotPassword] Reset password button clicked");
+    
+    if (loading) {
+      console.log("[ForgotPassword] Already loading, ignoring click");
+      return;
+    }
+
+    // Check Supabase configuration
+    if (configError) {
+      console.error("[ForgotPassword] Cannot reset password: Supabase not configured");
+      Alert.alert("Configuration Error", configError);
+      return;
+    }
+
     if (!email.trim()) {
+      console.log("[ForgotPassword] Validation failed: empty email");
       Alert.alert("Error", "Please enter your email address");
       return;
     }
 
-    if (!email.includes("@")) {
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+      console.log("[ForgotPassword] Validation failed: invalid email format");
       Alert.alert("Error", "Please enter a valid email address");
       return;
     }
 
+    console.log("[ForgotPassword] Starting password reset process...");
     setLoading(true);
+
     try {
+      console.log("[ForgotPassword] Calling supabase.auth.resetPasswordForEmail...");
       const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-        redirectTo: "manusapp://auth/reset-password",
+        redirectTo: `${window.location.origin}/auth/reset-password`,
       });
 
       if (error) {
-        Alert.alert("Error", error.message);
+        console.error("[ForgotPassword] Reset password error:", error);
+        
+        // Handle specific error cases
+        let errorMessage = error.message || "Unable to send reset email. Please try again.";
+        
+        if (error.message?.toLowerCase().includes("rate limit")) {
+          errorMessage = "Too many reset requests. Please wait a few minutes and try again.";
+        }
+        
+        Alert.alert("Error", errorMessage);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         return;
       }
 
+      console.log("[ForgotPassword] Password reset email sent successfully");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setSent(true);
     } catch (error: any) {
-      Alert.alert("Error", error.message || "An unexpected error occurred");
+      console.error("[ForgotPassword] Caught exception:", error);
+      Alert.alert("Error", error.message || "An unexpected error occurred. Please try again.");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
       setLoading(false);
     }
@@ -120,6 +164,15 @@ export default function ForgotPasswordScreen() {
 
           {!sent ? (
             <>
+              {/* Configuration Error Message */}
+              {configError && (
+                <View style={[styles.errorBanner, { backgroundColor: "#FEE2E2", borderColor: "#EF4444" }]}>
+                  <ThemedText style={[styles.errorText, { color: "#DC2626" }]}>
+                    ⚠️ {configError}
+                  </ThemedText>
+                </View>
+              )}
+
               {/* Reset Form */}
               <View style={[styles.form, { backgroundColor: cardBackground, borderColor }]}>
                 <View style={styles.formGroup}>
@@ -146,11 +199,11 @@ export default function ForgotPasswordScreen() {
 
                 <Pressable
                   onPress={handleResetPassword}
-                  disabled={loading}
+                  disabled={loading || !!configError}
                   style={[
                     styles.resetButton,
                     { backgroundColor: tintColor },
-                    loading && styles.buttonDisabled,
+                    (loading || configError) && styles.buttonDisabled,
                   ]}
                 >
                   {loading ? (
@@ -241,6 +294,18 @@ const styles = StyleSheet.create({
     opacity: 0.7,
     textAlign: "center",
     paddingHorizontal: 16,
+  },
+  errorBanner: {
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 16,
+  },
+  errorText: {
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: "center",
+    fontWeight: "500",
   },
   form: {
     borderRadius: 16,
