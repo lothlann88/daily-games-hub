@@ -33,30 +33,61 @@ export default function LoginScreen() {
   const inputBackground = useThemeColor({ light: "#FFFFFF", dark: "#2C2C2E" }, "background");
 
   const handleLogin = async () => {
+    console.log("[Login] Login button clicked");
+    console.log("[Login] Email:", email.trim());
+    
     if (!email.trim() || !password.trim()) {
+      console.log("[Login] Validation failed: empty email or password");
       Alert.alert("Error", "Please enter both email and password");
       return;
     }
 
+    console.log("[Login] Starting login process...");
     setLoading(true);
+    
     try {
+      console.log("[Login] Calling supabase.auth.signInWithPassword...");
       const { data, error } = await supabase.auth.signInWithPassword({
         email: email.trim(),
         password,
       });
 
+      console.log("[Login] Response received:", {
+        hasData: !!data,
+        hasUser: !!data?.user,
+        hasSession: !!data?.session,
+        hasError: !!error,
+        errorMessage: error?.message,
+      });
+
       if (error) {
-        Alert.alert("Login Failed", error.message);
+        console.error("[Login] Login error:", error);
+        Alert.alert("Login Failed", error.message || "Unable to sign in. Please check your credentials.");
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         return;
       }
 
+      if (!data?.user) {
+        console.error("[Login] No user in response despite no error");
+        Alert.alert("Error", "Login succeeded but no user data received. Please try again.");
+        return;
+      }
+
+      console.log("[Login] Login successful:", data.user.id);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       
       // Navigation will be handled by auth state listener in root layout
-      console.log("[Auth] Login successful:", data.user?.id);
     } catch (error: any) {
-      Alert.alert("Error", error.message || "An unexpected error occurred");
+      console.error("[Login] Caught exception:", error);
+      console.error("[Login] Error details:", {
+        message: error?.message,
+        name: error?.name,
+        stack: error?.stack,
+      });
+      Alert.alert("Error", error.message || "An unexpected error occurred during login.");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
+      console.log("[Login] Setting loading to false");
       setLoading(false);
     }
   };

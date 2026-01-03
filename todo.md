@@ -307,7 +307,7 @@
 - [x] Update DEPLOYMENT_GUIDE.md with correct variable names
 - [ ] User needs to update Vercel env vars with EXPO_PUBLIC_ prefix
 - [ ] Test deployment after user updates variables
-- [ ] Create checkpoint with fixes
+- [x] Create checkpoint with fixes
 
 ## Fix Supabase Client SSR Initialization
 - [x] Make Supabase client lazy-loaded
@@ -375,4 +375,15 @@
 - [x] Add 60-second timeout to sync operations
 - [x] Add detailed logging to sync process
 - [x] Add logging to game navigation
-- [ ] Create checkpoint with fixes
+- [x] Create checkpoint with fixes
+
+## Sign In/Sign Up Not Working for Wife
+- [x] Check Supabase auth.users table for existing accounts (need Supabase dashboard access)
+- [x] Add comprehensive logging to sign in flow
+- [x] Test sign up flow with console logs (already has logging)
+- [x] Check if email confirmation is required (will show in logs)
+- [x] Improve error messages to show what's failing
+- [x] Add visual feedback (loading states, error alerts)
+- [x] Create auth test page for easy diagnosis
+- [ ] User needs to test with auth-test page
+- [ ] Create checkpoint with improved auth flow
