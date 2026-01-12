@@ -1,4 +1,5 @@
-import { Paths, File } from "expo-file-system";
+import { Platform } from "react-native";
+import { Paths, File as ExpoFile } from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import * as DocumentPicker from "expo-document-picker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -56,7 +57,20 @@ export async function exportAndShare(): Promise<void> {
     const data = await exportData();
     const jsonString = JSON.stringify(data, null, 2);
     const fileName = `daily-games-backup-${Date.now()}.json`;
-    const file = new File(Paths.cache, fileName);
+    if (Platform.OS === "web") {
+      const blob = new Blob([jsonString], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      return;
+    }
+
+    const file = new ExpoFile(Paths.cache, fileName);
 
     // Write to file
     await file.write(jsonString);
@@ -107,28 +121,56 @@ export async function importData(data: ExportData): Promise<void> {
 /**
  * Pick and import data from file
  */
-export async function pickAndImportData(): Promise<void> {
+export async function pickAndImportData(mode: "replace" | "merge" = "replace"): Promise<void> {
   try {
-    const result = await DocumentPicker.getDocumentAsync({
-      type: "application/json",
-      copyToCacheDirectory: true,
-    });
+    let content: string | null = null;
 
-    if (result.canceled) {
-      return;
+    if (Platform.OS === "web") {
+      const file = await new Promise<File | null>((resolve) => {
+        const input = document.createElement("input");
+        input.type = "file";
+        input.accept = "application/json";
+        input.onchange = () => {
+          resolve(input.files?.[0] ?? null);
+        };
+        input.click();
+      });
+
+      if (!file) {
+        return;
+      }
+
+      content = await file.text();
+    } else {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: "application/json",
+        copyToCacheDirectory: true,
+      });
+
+      if (result.canceled) {
+        return;
+      }
+
+      const fileUri = result.assets[0].uri;
+      const file = new ExpoFile(fileUri);
+
+      // Read file content
+      content = await file.text();
     }
 
-    const fileUri = result.assets[0].uri;
-    const file = new File(fileUri);
-
-    // Read file content
-    const content = await file.text();
+    if (!content) {
+      return;
+    }
 
     // Parse JSON
     const data: ExportData = JSON.parse(content);
 
     // Import data
-    await importData(data);
+    if (mode === "merge") {
+      await mergeImportedData(data);
+    } else {
+      await importData(data);
+    }
   } catch (error) {
     console.error("Error picking/importing file:", error);
     throw new Error("Failed to import data from file");
