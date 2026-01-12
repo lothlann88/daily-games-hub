@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { Platform } from "react-native";
 import { useRouter, useSegments } from "expo-router";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
@@ -109,6 +110,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     const inAuthGroup = segments[0] === "auth";
     const inOnboarding = segments[0] === "onboarding";
+    const allowedSegments = new Set([
+      "(tabs)",
+      "game-detail",
+      "add-game",
+      "add-friend",
+      "modal",
+      "oauth",
+      "auth-test",
+    ]);
+    const isAllowedSegment = segments[0] ? allowedSegments.has(segments[0]) : true;
 
     if (!user && !inAuthGroup) {
       // Not authenticated and not in auth screens -> redirect to login
@@ -117,7 +128,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     } else if (user && inAuthGroup) {
       // Authenticated but in auth screens -> check onboarding and redirect
       checkOnboardingAndRedirect();
-    } else if (user && !inOnboarding && segments[0] !== "(tabs)") {
+    } else if (user && !inOnboarding && !inAuthGroup && !isAllowedSegment) {
       // Authenticated, not in onboarding, not in tabs -> check onboarding
       checkOnboardingAndRedirect();
     }
@@ -144,7 +155,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
       ]);
       const hasOAuthSession = Boolean(sessionToken || cachedUser);
 
-      if (hasOAuthSession) {
+      if (Platform.OS === "web") {
+        console.log("[Auth] Web sign out detected, calling Api.logout()");
+        try {
+          await Api.logout();
+        } catch (error) {
+          console.error("[Auth] Web logout API call failed:", error);
+        }
+        await Auth.removeSessionToken();
+        await Auth.clearUserInfo();
+      } else if (hasOAuthSession) {
         console.log("[Auth] OAuth session detected, calling Api.logout()");
         try {
           await Api.logout();

@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Alert,
   TextInput,
+  Modal,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
@@ -37,7 +38,8 @@ export default function SettingsScreen() {
 
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
-  const [checkingUsername, setCheckingUsername] = useState(false);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
 
   useEffect(() => {
     loadUserProfile();
@@ -47,6 +49,7 @@ export default function SettingsScreen() {
     const profile = await getUserProfile();
     setUserProfile(profile);
     setProfileLoading(false);
+    setNameDraft(profile?.name || "");
   };
 
   const handleExportData = async () => {
@@ -70,7 +73,7 @@ export default function SettingsScreen() {
           style: "destructive",
           onPress: async () => {
             try {
-              await dataTransfer.pickAndImportData();
+              await dataTransfer.pickAndImportData("replace");
               await refreshGames();
               await refreshScores();
               await loadUserProfile();
@@ -85,7 +88,7 @@ export default function SettingsScreen() {
           text: "Merge",
           onPress: async () => {
             try {
-              const result = await dataTransfer.pickAndImportData();
+              await dataTransfer.pickAndImportData("merge");
               await refreshGames();
               await refreshScores();
               await loadUserProfile();
@@ -102,95 +105,21 @@ export default function SettingsScreen() {
 
   const handleEditName = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    Alert.prompt(
-      "Edit Your Name",
-      "Enter your name",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Save",
-          onPress: async (newName?: string) => {
-            if (newName && newName.trim()) {
-              await updateUserProfile({ name: newName.trim() });
-              await loadUserProfile();
-              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            }
-          },
-        },
-      ],
-      "plain-text",
-      userProfile?.name || ""
-    );
+    setNameDraft(userProfile?.name || "");
+    setIsEditingName(true);
   };
 
-  const handleEditUsername = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    Alert.prompt(
-      "Set Username",
-      "Choose a unique username (3-20 characters, letters, numbers, underscores only)",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Save",
-          onPress: async (newUsername?: string) => {
-            if (!newUsername || !newUsername.trim()) {
-              return;
-            }
+  const handleSaveName = async () => {
+    const trimmedName = nameDraft.trim();
+    if (!trimmedName) {
+      Alert.alert("Invalid Name", "Please enter a name to save.");
+      return;
+    }
 
-            const username = newUsername.trim().toLowerCase();
-
-            // Validate format
-            if (!/^[a-z0-9_]{3,20}$/.test(username)) {
-              Alert.alert(
-                "Invalid Username",
-                "Username must be 3-20 characters and contain only letters, numbers, and underscores."
-              );
-              return;
-            }
-
-            try {
-              setCheckingUsername(true);
-              
-              // Check if username is available (using Supabase)
-              const { supabase } = await import("@/lib/supabase");
-              const { data: existing } = await supabase
-                .from("user_profiles")
-                .select("id")
-                .eq("username", username)
-                .neq("id", user?.id || "")
-                .single();
-
-              if (existing) {
-                Alert.alert("Username Taken", "This username is already in use. Please choose another.");
-                return;
-              }
-
-              // Update username
-              await updateUserProfile({ username });
-              
-              // Also update in Supabase
-              if (user) {
-                await supabase
-                  .from("user_profiles")
-                  .update({ username })
-                  .eq("id", user.id);
-              }
-
-              await loadUserProfile();
-              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-              Alert.alert("Success", `Your username is now @${username}`);
-            } catch (error) {
-              console.error("Error updating username:", error);
-              Alert.alert("Error", "Failed to update username. Please try again.");
-            } finally {
-              setCheckingUsername(false);
-            }
-          },
-        },
-      ],
-      "plain-text",
-      userProfile?.username || ""
-    );
+    await updateUserProfile({ name: trimmedName });
+    await loadUserProfile();
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setIsEditingName(false);
   };
 
   const handleToggleReminders = async (value: boolean) => {
@@ -268,6 +197,40 @@ export default function SettingsScreen() {
 
   return (
     <ThemedView style={styles.container}>
+      <Modal
+        visible={isEditingName}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsEditingName(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, { backgroundColor: cardBackground, borderColor }]}>
+            <ThemedText type="subtitle">Edit Your Name</ThemedText>
+            <TextInput
+              value={nameDraft}
+              onChangeText={setNameDraft}
+              placeholder="Enter your name"
+              placeholderTextColor={useThemeColor({ light: "#9CA3AF", dark: "#6B7280" }, "icon")}
+              style={[styles.modalInput, { color: textColor, borderColor }]}
+              autoFocus
+            />
+            <View style={styles.modalActions}>
+              <Pressable
+                onPress={() => setIsEditingName(false)}
+                style={[styles.modalButton, { borderColor }]}
+              >
+                <ThemedText>Cancel</ThemedText>
+              </Pressable>
+              <Pressable
+                onPress={handleSaveName}
+                style={[styles.modalButtonPrimary, { backgroundColor: tintColor }]}
+              >
+                <ThemedText style={styles.modalButtonPrimaryText}>Save</ThemedText>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
@@ -303,27 +266,6 @@ export default function SettingsScreen() {
               </View>
             </View>
             <ThemedText style={styles.settingRowRight}>Edit</ThemedText>
-          </Pressable>
-          <Pressable
-            onPress={handleEditUsername}
-            disabled={checkingUsername}
-            style={[styles.settingRow, { backgroundColor: cardBackground, borderColor }]}
-          >
-            <View style={styles.settingRowLeft}>
-              <View style={{ flex: 1 }}>
-                <ThemedText type="defaultSemiBold">Username</ThemedText>
-                <ThemedText style={styles.settingDescription}>
-                  {userProfile?.username ? `@${userProfile.username}` : "Set a unique username"}
-                </ThemedText>
-              </View>
-            </View>
-            {checkingUsername ? (
-              <ActivityIndicator size="small" color={tintColor} />
-            ) : (
-              <ThemedText style={styles.settingRowRight}>
-                {userProfile?.username ? "Edit" : "Set"}
-              </ThemedText>
-            )}
           </Pressable>
         </View>
 
@@ -489,6 +431,47 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 12,
     flex: 1,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 20,
+  },
+  modalCard: {
+    width: "100%",
+    borderRadius: 16,
+    padding: 16,
+    gap: 12,
+    borderWidth: 1,
+  },
+  modalInput: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 16,
+  },
+  modalActions: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: 12,
+  },
+  modalButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  modalButtonPrimary: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  modalButtonPrimaryText: {
+    color: "#fff",
+    fontWeight: "600",
   },
   settingDescription: {
     fontSize: 13,
