@@ -37,6 +37,7 @@ export default function GameDetailScreen() {
   const [result, setResult] = useState<"win" | "loss" | "draw">("win");
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const tintColor = useThemeColor({}, "tint");
@@ -107,7 +108,7 @@ export default function GameDetailScreen() {
         gameId: game.id,
         score: parseFloat(scoreValue) || 0,
         result,
-        datePlayed: Date.now(),
+        datePlayed: selectedDate.getTime(),
         notes: notes.trim() || undefined,
       };
 
@@ -122,6 +123,7 @@ export default function GameDetailScreen() {
       setScoreValue("");
       setNotes("");
       setResult("win");
+      setSelectedDate(new Date());
 
       // Reload recent scores
       await loadRecentScores();
@@ -314,6 +316,140 @@ export default function GameDetailScreen() {
           </ThemedText>
 
 
+
+          <View style={styles.formGroup}>
+            <ThemedText style={styles.label}>Date Played</ThemedText>
+            <View style={styles.dateSelector}>
+              <Pressable
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+                  setSelectedDate(today);
+                }}
+                style={[
+                  styles.dateButton,
+                  { borderColor },
+                  selectedDate.toDateString() === new Date().toDateString() && {
+                    backgroundColor: tintColor,
+                    borderColor: tintColor,
+                  },
+                ]}
+              >
+                <ThemedText
+                  style={[
+                    styles.dateButtonText,
+                    selectedDate.toDateString() === new Date().toDateString() && { color: "#fff" },
+                  ]}
+                >
+                  Today
+                </ThemedText>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  const yesterday = new Date();
+                  yesterday.setDate(yesterday.getDate() - 1);
+                  yesterday.setHours(0, 0, 0, 0);
+                  setSelectedDate(yesterday);
+                }}
+                style={[
+                  styles.dateButton,
+                  { borderColor },
+                  (() => {
+                    const yesterday = new Date();
+                    yesterday.setDate(yesterday.getDate() - 1);
+                    return selectedDate.toDateString() === yesterday.toDateString();
+                  })() && {
+                    backgroundColor: tintColor,
+                    borderColor: tintColor,
+                  },
+                ]}
+              >
+                <ThemedText
+                  style={[
+                    styles.dateButtonText,
+                    (() => {
+                      const yesterday = new Date();
+                      yesterday.setDate(yesterday.getDate() - 1);
+                      return selectedDate.toDateString() === yesterday.toDateString();
+                    })() && { color: "#fff" },
+                  ]}
+                >
+                  Yesterday
+                </ThemedText>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  // Show a simple date picker using prompt
+                  Alert.prompt(
+                    "Select Date",
+                    "Enter date (YYYY-MM-DD)",
+                    [
+                      {
+                        text: "Cancel",
+                        style: "cancel",
+                      },
+                      {
+                        text: "OK",
+                        onPress: (dateString?: string) => {
+                          if (dateString) {
+                            const date = new Date(dateString);
+                            if (!isNaN(date.getTime())) {
+                              date.setHours(0, 0, 0, 0);
+                              setSelectedDate(date);
+                            } else {
+                              Alert.alert("Invalid Date", "Please enter a valid date in YYYY-MM-DD format");
+                            }
+                          }
+                        },
+                      },
+                    ],
+                    "plain-text",
+                    selectedDate.toISOString().split("T")[0]
+                  );
+                }}
+                style={[
+                  styles.dateButton,
+                  { borderColor },
+                  selectedDate.toDateString() !== new Date().toDateString() &&
+                    (() => {
+                      const yesterday = new Date();
+                      yesterday.setDate(yesterday.getDate() - 1);
+                      return selectedDate.toDateString() !== yesterday.toDateString();
+                    })() && {
+                      backgroundColor: tintColor,
+                      borderColor: tintColor,
+                    },
+                ]}
+              >
+                <ThemedText
+                  style={[
+                    styles.dateButtonText,
+                    selectedDate.toDateString() !== new Date().toDateString() &&
+                      (() => {
+                        const yesterday = new Date();
+                        yesterday.setDate(yesterday.getDate() - 1);
+                        return selectedDate.toDateString() !== yesterday.toDateString();
+                      })() && { color: "#fff" },
+                  ]}
+                >
+                  {selectedDate.toDateString() === new Date().toDateString() ||
+                  (() => {
+                    const yesterday = new Date();
+                    yesterday.setDate(yesterday.getDate() - 1);
+                    return selectedDate.toDateString() === yesterday.toDateString();
+                  })()
+                    ? "Other"
+                    : selectedDate.toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                      })}
+                </ThemedText>
+              </Pressable>
+            </View>
+          </View>
 
           <View style={styles.formGroup}>
             <ThemedText style={styles.label}>Score</ThemedText>
@@ -573,6 +709,21 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   resultButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  dateSelector: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  dateButton: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 2,
+    alignItems: "center",
+  },
+  dateButtonText: {
     fontSize: 14,
     fontWeight: "600",
   },

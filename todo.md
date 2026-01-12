@@ -446,3 +446,14 @@
 - [x] Create password reset confirmation screen (built into forgot-password.tsx)
 - [ ] Test password reset flow on deployed app
 - [ ] Create checkpoint with forgot password feature
+
+## Backdate Play Feature
+- [x] Review game detail page and current play tracking logic
+- [x] Add date picker UI component to game detail page
+- [x] Allow users to select previous dates (Today, Yesterday, Other)
+- [x] Update play tracking logic to accept custom dates
+- [x] Save play records with selected date to database (uses selectedDate.getTime())
+- [x] Update UI to show plays on specific dates (date selector shows selected date)
+- [x] Add Alert.prompt for custom date input
+- [ ] Test backdating functionality on deployed app
+- [ ] Create checkpoint with backdate play feature
