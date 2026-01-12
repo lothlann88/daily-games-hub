@@ -456,4 +456,11 @@
 - [x] Update UI to show plays on specific dates (date selector shows selected date)
 - [x] Add Alert.prompt for custom date input
 - [ ] Test backdating functionality on deployed app
-- [ ] Create checkpoint with backdate play feature
+- [x] Create checkpoint with backdate play feature
+
+## User-Reported Bugs (Video Testing)
+- [ ] Fix sign out not working (investigated - code looks correct, may be Supabase config issue)
+- [x] Fix custom date picker - "Other" button not allowing date selection (replaced Alert.prompt with cross-platform modal)
+- [x] Improve tap responsiveness and polish for icons/buttons (added hit slop and haptic feedback)
+- [ ] Test all three fixes end-to-end on deployed app
+- [ ] Create checkpoint with bug fixes

@@ -238,7 +238,13 @@ export default function HomeScreen() {
           onChangeText={setSearchQuery}
         />
         {searchQuery.length > 0 && (
-          <Pressable onPress={() => setSearchQuery("")}>
+          <Pressable 
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setSearchQuery("");
+            }}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
             <IconSymbol name="xmark.circle.fill" size={20} color={tintColor} />
           </Pressable>
         )}

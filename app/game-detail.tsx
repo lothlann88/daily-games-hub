@@ -7,6 +7,7 @@ import {
   TextInput,
   ActivityIndicator,
   Alert,
+  Modal,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -38,6 +39,8 @@ export default function GameDetailScreen() {
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [tempDateInput, setTempDateInput] = useState("");
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const tintColor = useThemeColor({}, "tint");
@@ -382,33 +385,8 @@ export default function GameDetailScreen() {
               <Pressable
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  // Show a simple date picker using prompt
-                  Alert.prompt(
-                    "Select Date",
-                    "Enter date (YYYY-MM-DD)",
-                    [
-                      {
-                        text: "Cancel",
-                        style: "cancel",
-                      },
-                      {
-                        text: "OK",
-                        onPress: (dateString?: string) => {
-                          if (dateString) {
-                            const date = new Date(dateString);
-                            if (!isNaN(date.getTime())) {
-                              date.setHours(0, 0, 0, 0);
-                              setSelectedDate(date);
-                            } else {
-                              Alert.alert("Invalid Date", "Please enter a valid date in YYYY-MM-DD format");
-                            }
-                          }
-                        },
-                      },
-                    ],
-                    "plain-text",
-                    selectedDate.toISOString().split("T")[0]
-                  );
+                  setTempDateInput(selectedDate.toISOString().split("T")[0]);
+                  setShowDatePicker(true);
                 }}
                 style={[
                   styles.dateButton,
@@ -564,6 +542,59 @@ export default function GameDetailScreen() {
           </View>
         )}
       </ScrollView>
+
+      {/* Date Picker Modal */}
+      <Modal
+        visible={showDatePicker}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowDatePicker(false)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setShowDatePicker(false)}
+        >
+          <Pressable
+            style={[styles.modalContent, { backgroundColor }]}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <ThemedText type="subtitle" style={styles.modalTitle}>
+              Select Date
+            </ThemedText>
+            <TextInput
+              value={tempDateInput}
+              onChangeText={setTempDateInput}
+              placeholder="YYYY-MM-DD"
+              style={[styles.dateInput, { borderColor, color: tintColor }]}
+              placeholderTextColor="#999"
+            />
+            <View style={styles.modalButtons}>
+              <Pressable
+                onPress={() => setShowDatePicker(false)}
+                style={[styles.modalButton, { borderColor }]}
+              >
+                <ThemedText>Cancel</ThemedText>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  const date = new Date(tempDateInput);
+                  if (!isNaN(date.getTime())) {
+                    date.setHours(0, 0, 0, 0);
+                    setSelectedDate(date);
+                    setShowDatePicker(false);
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                  } else {
+                    Alert.alert("Invalid Date", "Please enter a valid date in YYYY-MM-DD format");
+                  }
+                }}
+                style={[styles.modalButton, styles.modalButtonPrimary, { backgroundColor: tintColor }]}
+              >
+                <ThemedText style={{ color: "#fff" }}>OK</ThemedText>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </ThemedView>
   );
 }
@@ -839,5 +870,43 @@ const styles = StyleSheet.create({
   },
   leaderboardScore: {
     fontSize: 20,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  modalContent: {
+    width: "100%",
+    maxWidth: 400,
+    borderRadius: 16,
+    padding: 24,
+    gap: 20,
+  },
+  modalTitle: {
+    textAlign: "center",
+  },
+  dateInput: {
+    borderWidth: 2,
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    fontSize: 16,
+  },
+  modalButtons: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    borderWidth: 2,
+    alignItems: "center",
+  },
+  modalButtonPrimary: {
+    borderWidth: 0,
   },
 });
