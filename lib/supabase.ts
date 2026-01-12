@@ -1,6 +1,4 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Platform } from "react-native";
 
 // Check if we're in a browser environment
 const isBrowser = typeof window !== "undefined";
@@ -8,6 +6,19 @@ const isBrowser = typeof window !== "undefined";
 // Lazy-loaded Supabase client to avoid SSR errors
 let supabaseInstance: SupabaseClient | null = null;
 let configError: string | null = null;
+
+function getPlatformOS(): string {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const reactNative = require("react-native") as { Platform?: { OS?: string } };
+    if (reactNative?.Platform?.OS) {
+      return reactNative.Platform.OS;
+    }
+  } catch (error) {
+    // Ignore - default to web
+  }
+  return "web";
+}
 
 function initializeSupabaseClient(): SupabaseClient {
   // Return existing instance if already created
@@ -38,14 +49,14 @@ function initializeSupabaseClient(): SupabaseClient {
   // Clear any previous config error
   configError = null;
 
-  // Only use AsyncStorage and session persistence in browser environment
-  // During SSR (Vercel build), skip storage to avoid "window is not defined" errors
+  // Only enable session persistence in browser environment
+  // During SSR (Vercel build), skip persistence to avoid "window is not defined" errors
+  const platformOS = getPlatformOS();
   const authConfig = isBrowser
     ? {
-        storage: AsyncStorage,
         autoRefreshToken: true,
         persistSession: true,
-        detectSessionInUrl: Platform.OS === "web",
+        detectSessionInUrl: platformOS === "web",
       }
     : {
         autoRefreshToken: false,
