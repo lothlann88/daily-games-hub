@@ -2,6 +2,8 @@ import { createContext, useContext, useEffect, useState, ReactNode } from "react
 import { useRouter, useSegments } from "expo-router";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
+import * as Auth from "@/lib/auth";
+import * as Api from "@/lib/api";
 import { hasCompletedOnboarding } from "@/lib/storage";
 import { syncData } from "@/lib/sync";
 
@@ -135,34 +137,37 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const signOut = async () => {
     try {
       console.log("[Auth] Sign out initiated");
-      
-      // Check if Supabase is configured
-      if (!isSupabaseConfigured()) {
+
+      const [sessionToken, cachedUser] = await Promise.all([
+        Auth.getSessionToken(),
+        Auth.getUserInfo(),
+      ]);
+      const hasOAuthSession = Boolean(sessionToken || cachedUser);
+
+      if (hasOAuthSession) {
+        console.log("[Auth] OAuth session detected, calling Api.logout()");
+        try {
+          await Api.logout();
+        } catch (error) {
+          console.error("[Auth] OAuth logout API call failed:", error);
+        }
+        await Auth.removeSessionToken();
+        await Auth.clearUserInfo();
+      } else if (!isSupabaseConfigured()) {
         console.warn("[Auth] Supabase not configured, skipping remote sign out");
         // Skip Supabase call but still clear local state
       } else {
         // Call Supabase sign out
         console.log("[Auth] Calling supabase.auth.signOut()...");
         const { error } = await supabase.auth.signOut();
-        
+
         if (error) {
           console.error("[Auth] Sign out error:", error);
           throw error;
         }
       }
-      
-      console.log("[Auth] Sign out successful, clearing state...");
-      
-      // Clear local state
-      setUser(null);
-      setSession(null);
-      setSyncing(false);
-      setLastSyncTime(null);
-      
-      console.log("[Auth] Redirecting to login...");
-      router.replace("/auth/login" as any);
-      
-      console.log("[Auth] Sign out complete");
+
+      console.log("[Auth] Sign out successful");
     } catch (error: any) {
       console.error("[Auth] Sign out failed:", error);
       console.error("[Auth] Error details:", {
@@ -170,9 +175,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
         name: error?.name,
         stack: error?.stack,
       });
-      
+    } finally {
       // Even if sign out fails, clear local state and redirect
-      console.log("[Auth] Forcing local sign out despite error...");
+      console.log("[Auth] Clearing local state and redirecting to login...");
       setUser(null);
       setSession(null);
       setSyncing(false);
