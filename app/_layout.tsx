@@ -78,17 +78,18 @@ export default function RootLayout() {
         <QueryClientProvider client={queryClient}>
           <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
             <AuthProvider>
-              <Stack>
-                <Stack.Screen name="auth/login" options={{ headerShown: false }} />
-                <Stack.Screen name="auth/register" options={{ headerShown: false }} />
-                <Stack.Screen name="auth/forgot-password" options={{ headerShown: false }} />
-                <Stack.Screen name="onboarding" options={{ headerShown: false }} />
-                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                <Stack.Screen name="modal" options={{ presentation: "modal", title: "Modal" }} />
-                <Stack.Screen name="game-detail" options={{ presentation: "modal", title: "Game Detail" }} />
-                <Stack.Screen name="add-game" options={{ presentation: "modal", title: "Add Game" }} />
-              </Stack>
-              <StatusBar style="auto" />
+            <Stack>
+              <Stack.Screen name="auth/login" options={{ headerShown: false }} />
+              <Stack.Screen name="auth/register" options={{ headerShown: false }} />
+              <Stack.Screen name="auth/forgot-password" options={{ headerShown: false }} />
+              <Stack.Screen name="onboarding" options={{ headerShown: false }} />
+              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+              <Stack.Screen name="modal" options={{ presentation: "modal", title: "Modal" }} />
+              <Stack.Screen name="oauth/callback" options={{ headerShown: false }} />
+              <Stack.Screen name="game-detail" options={{ presentation: "modal", title: "Game Detail" }} />
+              <Stack.Screen name="add-game" options={{ presentation: "modal", title: "Add Game" }} />
+            </Stack>
+            <StatusBar style="auto" />
             </AuthProvider>
           </ThemeProvider>
         </QueryClientProvider>

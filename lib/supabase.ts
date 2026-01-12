@@ -1,8 +1,9 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Platform } from "react-native";
 
-const hasWindow = typeof window !== "undefined";
-const isWeb = hasWindow && typeof document !== "undefined";
-const isNative = !isWeb && typeof navigator !== "undefined" && navigator.product === "ReactNative";
+// Check if we're in a browser environment
+const isBrowser = typeof window !== "undefined";
 
 // Lazy-loaded Supabase client to avoid SSR errors
 let supabaseInstance: SupabaseClient | null = null;
@@ -37,19 +38,14 @@ function initializeSupabaseClient(): SupabaseClient {
   // Clear any previous config error
   configError = null;
 
-  // Use AsyncStorage persistence on native.
-  // On web, only enable persistence when window exists to stay SSR-safe.
-  const shouldPersistSession = isNative || (isWeb && hasWindow);
-  const asyncStorage = isNative
-    ? (require("@react-native-async-storage/async-storage").default ??
-        require("@react-native-async-storage/async-storage"))
-    : undefined;
-  const authConfig = shouldPersistSession
+  // Only use AsyncStorage and session persistence in browser environment
+  // During SSR (Vercel build), skip storage to avoid "window is not defined" errors
+  const authConfig = isBrowser
     ? {
-        ...(asyncStorage ? { storage: asyncStorage } : {}),
+        storage: AsyncStorage,
         autoRefreshToken: true,
         persistSession: true,
-        detectSessionInUrl: isWeb,
+        detectSessionInUrl: Platform.OS === "web",
       }
     : {
         autoRefreshToken: false,
@@ -57,13 +53,7 @@ function initializeSupabaseClient(): SupabaseClient {
         detectSessionInUrl: false,
       };
 
-  console.log("[Supabase] Initializing client...", {
-    isWeb,
-    hasWindow,
-    isNative,
-    hasUrl: !!supabaseUrl,
-    hasKey: !!supabaseAnonKey,
-  });
+  console.log("[Supabase] Initializing client...", { isBrowser, hasUrl: !!supabaseUrl, hasKey: !!supabaseAnonKey });
 
   supabaseInstance = createClient(supabaseUrl, supabaseAnonKey, {
     auth: authConfig,
