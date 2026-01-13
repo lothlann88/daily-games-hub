@@ -41,10 +41,11 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const tintColor = useThemeColor({}, "tint");
-  const backgroundColor = useThemeColor({}, "background");
   const cardBackground = useThemeColor({}, "card");
   const borderColor = useThemeColor({}, "cardBorder");
   const inputBackground = useThemeColor({ light: "#F9FAFB", dark: "#374151" }, "card");
+  const textColor = useThemeColor({}, "text");
+  const placeholderColor = useThemeColor({ light: "#9CA3AF", dark: "#6B7280" }, "icon");
 
   // Load user profile
   useEffect(() => {
@@ -231,9 +232,9 @@ export default function HomeScreen() {
       <View style={[styles.searchContainer, { backgroundColor: inputBackground, borderColor }]}>
         <IconSymbol name="magnifyingglass" size={20} color={tintColor} />
         <TextInput
-          style={[styles.searchInput, { color: useThemeColor({}, "text") }]}
+          style={[styles.searchInput, { color: textColor }]}
           placeholder="Search games..."
-          placeholderTextColor={useThemeColor({ light: "#9CA3AF", dark: "#6B7280" }, "icon")}
+          placeholderTextColor={placeholderColor}
           value={searchQuery}
           onChangeText={setSearchQuery}
         />
