@@ -183,13 +183,21 @@ export async function pickAndImportData(mode: "replace" | "merge" = "replace"): 
 export async function mergeImportedData(data: ExportData): Promise<void> {
   try {
     // Get existing data
-    const [existingGames, existingScores] = await Promise.all([
+    const [existingGames, existingScores, existingProfile, existingPreferences] = await Promise.all([
       AsyncStorage.getItem(KEYS.GAMES),
       AsyncStorage.getItem(KEYS.SCORES),
+      AsyncStorage.getItem(KEYS.USER_PROFILE),
+      AsyncStorage.getItem(KEYS.PREFERENCES),
     ]);
 
     const currentGames: Game[] = existingGames ? JSON.parse(existingGames) : [];
     const currentScores: Score[] = existingScores ? JSON.parse(existingScores) : [];
+    const currentProfile: UserProfile | null = existingProfile
+      ? JSON.parse(existingProfile)
+      : null;
+    const currentPreferences: Preferences | null = existingPreferences
+      ? JSON.parse(existingPreferences)
+      : null;
 
     // Merge games (avoid duplicates by ID)
     const gamesMap = new Map(currentGames.map((g) => [g.id, g]));
@@ -207,11 +215,27 @@ export async function mergeImportedData(data: ExportData): Promise<void> {
       }
     });
 
+    const mergedProfile = currentProfile ?? data.userProfile ?? null;
+    const mergedPreferences =
+      currentPreferences && data.preferences
+        ? { ...currentPreferences, ...data.preferences }
+        : currentPreferences ?? data.preferences ?? null;
+
     // Save merged data
-    await Promise.all([
+    const writes: Promise<void>[] = [
       AsyncStorage.setItem(KEYS.GAMES, JSON.stringify(Array.from(gamesMap.values()))),
       AsyncStorage.setItem(KEYS.SCORES, JSON.stringify(Array.from(scoresMap.values()))),
-    ]);
+    ];
+
+    if (mergedProfile) {
+      writes.push(AsyncStorage.setItem(KEYS.USER_PROFILE, JSON.stringify(mergedProfile)));
+    }
+
+    if (mergedPreferences) {
+      writes.push(AsyncStorage.setItem(KEYS.PREFERENCES, JSON.stringify(mergedPreferences)));
+    }
+
+    await Promise.all(writes);
   } catch (error) {
     console.error("Error merging data:", error);
     throw new Error("Failed to merge imported data");

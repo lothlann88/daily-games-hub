@@ -56,22 +56,22 @@ export default function HomeScreen() {
     loadProfile();
   }, []);
 
+  const gamesMissingLogos = useMemo(() => games.filter((game) => !game.logoUrl), [games]);
+
   // Fetch logos for games that don't have them
   useEffect(() => {
     const fetchLogos = async () => {
-      for (const game of games) {
-        if (!game.logoUrl) {
-          const logoUrl = await fetchGameLogo(game.url);
-          if (logoUrl) {
-            await updateGame(game.id, { logoUrl });
-          }
+      for (const game of gamesMissingLogos) {
+        const logoUrl = await fetchGameLogo(game.url);
+        if (logoUrl) {
+          await updateGame(game.id, { logoUrl });
         }
       }
     };
-    if (games.length > 0) {
+    if (gamesMissingLogos.length > 0) {
       fetchLogos();
     }
-  }, [games.length]);
+  }, [gamesMissingLogos, updateGame]);
 
   const onRefresh = async () => {
     setRefreshing(true);
