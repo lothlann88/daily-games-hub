@@ -7,7 +7,7 @@ A beautiful, modern mobile app for tracking daily games, scores, and streaks. Bu
 ## ✨ Features
 
 ### 🎯 Game Management
-- **13 Pre-loaded Games**: Wordle, NYT Mini, Connections, Spelling Bee, Strands, LinkedIn Pinpoint, LinkedIn Queens, Geoguessr, Bandle, Guardian Daily Mini, Reunion, Sudoku, and Waffle
+- **24 Pre-loaded Games**: Wordle, NYT Mini, Connections, Spelling Bee, Strands, LinkedIn Pinpoint, LinkedIn Queens, Geoguessr, Bandle, Guardian Daily Mini, Reunion, Sudoku, Waffle, Phrazle, Nerdle, Heardle, Yeardle, Flagle, Murdle, Framed, Gamedle, Gamedle Artwork, Gamedle Classic, and Gamedle Character
 - **Real Game Logos**: Automatically fetches official logos from game websites
 - **Add Custom Games**: Easily add new daily games with custom icons and URLs
 - **Category Organization**: Games organized by Word Games, Puzzles, Strategy, and Trivia
@@ -317,5 +317,4 @@ For questions or issues, please [open an issue](https://github.com/lothlann88/da
 
 
 **Made with ❤️ for daily game enthusiasts**
-
 
