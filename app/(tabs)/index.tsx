@@ -221,7 +221,7 @@ export default function HomeScreen() {
       </ThemedText>
       
       <ThemedText style={styles.description}>
-        Your central hub for daily puzzle games. Track scores, build streaks, and compete with friends across 24+ games.
+        Your central hub for daily puzzle games. Track scores, build streaks, and compete with friends across 24+ games. Built for fun and convenience!
       </ThemedText>
       <ThemedText style={styles.subtitle}>
         {filteredGames.length} {filteredGames.length === 1 ? "game" : "games"}
