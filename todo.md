@@ -464,3 +464,10 @@
 - [x] Improve tap responsiveness and polish for icons/buttons (added hit slop and haptic feedback)
 - [ ] Test all three fixes end-to-end on deployed app
 - [ ] Create checkpoint with bug fixes
+
+## Add New Games
+- [x] Research Britannica Revealed game details
+- [x] Research Redactle Unlimited game details
+- [x] Add both games to the games list (in lib/storage.ts getDefaultGames)
+- [x] Test games display and functionality (dev server running, no errors)
+- [ ] Create checkpoint with new games
