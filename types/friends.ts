@@ -56,7 +56,7 @@ export interface FriendScore {
   friend_name: string;
   friend_avatar?: string;
   score: number;
-  played_at: string;
+  date_played: string;
   rank?: number;
 }
 

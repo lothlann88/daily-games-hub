@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Game, UserProfile, Score, Preferences } from "@/types";
 
-const KEYS = {
+export const KEYS = {
   GAMES: "games",
   USER_PROFILE: "userProfile",
   SCORES: "scores",

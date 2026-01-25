@@ -60,22 +60,28 @@ export default function AddFriendScreen() {
         if (error) throw error;
 
         if (users && users.length > 0) {
+          // Get current user once to avoid multiple async calls
+          const { data: { user: currentUser } } = await supabase.auth.getUser();
+          if (!currentUser) {
+            setSearchResults([]);
+            return;
+          }
+          
           // Check friendship status for the found user
           const userWithStatus = await Promise.all(
             users.map(async (user) => {
               const isFriend = await friendsLib.checkAreFriends(user.id);
               
-              // Check for pending requests
+              // Check for pending requests using proper parameterized query
               const { data: pendingRequests } = await supabase
                 .from("friend_requests")
                 .select("*")
                 .eq("status", "pending")
-                .or(`and(sender_id.eq.${user.id},receiver_id.eq.${(await supabase.auth.getUser()).data.user?.id}),and(sender_id.eq.${(await supabase.auth.getUser()).data.user?.id},receiver_id.eq.${user.id})`);
+                .or(`and(sender_id.eq.${user.id},receiver_id.eq.${currentUser.id}),and(sender_id.eq.${currentUser.id},receiver_id.eq.${user.id})`);
               
               const pendingRequest = pendingRequests?.[0];
-              const currentUserId = (await supabase.auth.getUser()).data.user?.id;
               const requestDirection: "sent" | "received" | undefined = pendingRequest
-                ? pendingRequest.sender_id === currentUserId
+                ? pendingRequest.sender_id === currentUser.id
                   ? "sent"
                   : "received"
                 : undefined;
@@ -157,7 +163,7 @@ export default function AddFriendScreen() {
         <View style={styles.resultLeft}>
           <View style={[styles.avatar, { backgroundColor: tintColor }]}>
             <ThemedText style={styles.avatarText}>
-              {item.name.charAt(0).toUpperCase()}
+              {(item.name ?? "?").charAt(0).toUpperCase()}
             </ThemedText>
           </View>
           <View style={styles.resultInfo}>

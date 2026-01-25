@@ -1,9 +1,9 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { supabase } from "./supabase";
 import { Game, Score, UserProfile, Preferences } from "@/types";
+import { KEYS } from "@/lib/storage";
 
 const SYNC_STATUS_KEY = "@daily_games_sync_status";
-const LAST_SYNC_KEY = "@daily_games_last_sync";
 
 interface SyncStatus {
   hasInitialSync: boolean;
@@ -256,9 +256,9 @@ export async function performInitialSync(): Promise<void> {
     console.log("[Sync] Starting initial sync...");
 
     // Get all local data
-    const gamesData = await AsyncStorage.getItem("@daily_games_games");
-    const scoresData = await AsyncStorage.getItem("@daily_games_scores");
-    const profileData = await AsyncStorage.getItem("@daily_games_user_profile");
+    const gamesData = await AsyncStorage.getItem(KEYS.GAMES);
+    const scoresData = await AsyncStorage.getItem(KEYS.SCORES);
+    const profileData = await AsyncStorage.getItem(KEYS.USER_PROFILE);
 
     const games: Game[] = gamesData ? JSON.parse(gamesData) : [];
     const scores: Score[] = scoresData ? JSON.parse(scoresData) : [];
@@ -303,14 +303,16 @@ export async function performFullSync(): Promise<void> {
     ]);
 
     // Save to local storage
-    if (cloudGames.length > 0) {
-      await AsyncStorage.setItem("@daily_games_games", JSON.stringify(cloudGames));
+    // Always save arrays (even if empty) to ensure sync consistency
+    // Only skip saving if the fetch operation failed (null/undefined)
+    if (cloudGames !== null && cloudGames !== undefined) {
+      await AsyncStorage.setItem(KEYS.GAMES, JSON.stringify(cloudGames));
     }
-    if (cloudScores.length > 0) {
-      await AsyncStorage.setItem("@daily_games_scores", JSON.stringify(cloudScores));
+    if (cloudScores !== null && cloudScores !== undefined) {
+      await AsyncStorage.setItem(KEYS.SCORES, JSON.stringify(cloudScores));
     }
     if (cloudProfile) {
-      await AsyncStorage.setItem("@daily_games_user_profile", JSON.stringify(cloudProfile));
+      await AsyncStorage.setItem(KEYS.USER_PROFILE, JSON.stringify(cloudProfile));
     }
 
     // Update sync status

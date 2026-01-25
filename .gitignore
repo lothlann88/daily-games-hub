@@ -48,6 +48,7 @@ app-example
 *.swp
 *.swo
 *~
+daily_games_hub.code-workspace
 
 # Logs
 logs

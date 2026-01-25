@@ -13,6 +13,7 @@ import {
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
+import * as Linking from "expo-linking";
 
 import { Image } from "expo-image";
 
@@ -77,8 +78,13 @@ export default function ForgotPasswordScreen() {
 
     try {
       console.log("[ForgotPassword] Calling supabase.auth.resetPasswordForEmail...");
+      const redirectTo =
+        Platform.OS === "web"
+          ? `${window.location.origin}/auth/reset-password`
+          : Linking.createURL("auth/reset-password");
+
       const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-        redirectTo: `${window.location.origin}/auth/reset-password`,
+        redirectTo,
       });
 
       if (error) {

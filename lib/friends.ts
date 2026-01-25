@@ -28,11 +28,17 @@ export async function sendFriendRequest(receiverId: string): Promise<void> {
   }
 
   // Check if request already exists
-  const { data: existing } = await supabase
+  // Use proper parameterized query to avoid injection issues
+  const { data: existing, error: existingError } = await supabase
     .from("friend_requests")
     .select("*")
     .or(`and(sender_id.eq.${user.id},receiver_id.eq.${receiverId}),and(sender_id.eq.${receiverId},receiver_id.eq.${user.id})`)
-    .single();
+    .maybeSingle();
+  
+  // Handle case where no existing request is found (not an error)
+  if (existingError && existingError.code !== "PGRST116") {
+    throw existingError;
+  }
 
   if (existing) {
     throw new Error("Friend request already exists");
@@ -229,11 +235,15 @@ export async function searchUsers(query: string): Promise<SearchResult[]> {
 
   if (!query || query.trim().length < 2) return [];
 
-  // Search by name or username
+  // Sanitize query to prevent potential issues
+  const sanitizedQuery = query.trim().replace(/[%_]/g, "");
+  if (sanitizedQuery.length < 2) return [];
+
+  // Search by name or username using parameterized query
   const { data: profiles, error } = await supabase
     .from("user_profiles")
     .select("id, name, username, avatar_url, is_private")
-    .or(`name.ilike.%${query}%,username.ilike.%${query}%`)
+    .or(`name.ilike.%${sanitizedQuery}%,username.ilike.%${sanitizedQuery}%`)
     .neq("id", user.id)
     .limit(20);
 
@@ -272,8 +282,9 @@ export async function checkAreFriends(friendId: string): Promise<boolean> {
     .select("id")
     .eq("user_id", user.id)
     .eq("friend_id", friendId)
-    .single();
+    .maybeSingle();
 
+  // PGRST116 means no rows found, which is expected when checking friendship
   if (error && error.code !== "PGRST116") throw error;
 
   return !!data;
@@ -291,26 +302,36 @@ export async function checkPendingRequest(
   if (!user) return { has_request: false };
 
   // Check if current user sent request
-  const { data: sentRequest } = await supabase
+  const { data: sentRequest, error: sentError } = await supabase
     .from("friend_requests")
     .select("id")
     .eq("sender_id", user.id)
     .eq("receiver_id", userId)
     .eq("status", "pending")
-    .single();
+    .maybeSingle();
+
+  // PGRST116 means no rows found, which is expected
+  if (sentError && sentError.code !== "PGRST116") {
+    throw sentError;
+  }
 
   if (sentRequest) {
     return { has_request: true, direction: "sent" };
   }
 
   // Check if current user received request
-  const { data: receivedRequest } = await supabase
+  const { data: receivedRequest, error: receivedError } = await supabase
     .from("friend_requests")
     .select("id")
     .eq("sender_id", userId)
     .eq("receiver_id", user.id)
     .eq("status", "pending")
-    .single();
+    .maybeSingle();
+  
+  // PGRST116 means no rows found, which is expected
+  if (receivedError && receivedError.code !== "PGRST116") {
+    throw receivedError;
+  }
 
   if (receivedRequest) {
     return { has_request: true, direction: "received" };
@@ -341,11 +362,11 @@ export async function getFriendScoresForGame(gameId: string): Promise<FriendScor
   // Get scores from friends for this game
   const { data: scores, error } = await supabase
     .from("scores")
-    .select("user_id, score, played_at")
+    .select("user_id, score, date_played")
     .eq("game_id", gameId)
     .in("user_id", friendIds)
     .order("score", { ascending: false })
-    .order("played_at", { ascending: false });
+    .order("date_played", { ascending: false });
 
   if (error) throw error;
   if (!scores) return [];
@@ -364,7 +385,7 @@ export async function getFriendScoresForGame(gameId: string): Promise<FriendScor
           friend_name: friend.name,
           friend_avatar: friend.avatar_url,
           score: score.score,
-          played_at: score.played_at,
+          date_played: score.date_played,
         });
       }
     }
@@ -393,7 +414,7 @@ export async function getFriendLeaderboard(gameId: string): Promise<FriendLeader
   // Get all scores for this game from friends and current user
   const { data: scores, error } = await supabase
     .from("scores")
-    .select("user_id, score, played_at")
+    .select("user_id, score, date_played")
     .eq("game_id", gameId)
     .in("user_id", allUserIds)
     .order("score", { ascending: false });
@@ -439,11 +460,17 @@ export async function getFriendLeaderboard(gameId: string): Promise<FriendLeader
       }
     } else {
       // Get current user profile
-      const { data: profile } = await supabase
+      const { data: profile, error: profileError } = await supabase
         .from("user_profiles")
         .select("name, avatar_url")
         .eq("id", userId)
-        .single();
+        .maybeSingle();
+      
+      // PGRST116 means no rows found, which is acceptable
+      if (profileError && profileError.code !== "PGRST116") {
+        console.error("[getFriendLeaderboard] Error fetching user profile:", profileError);
+      }
+      
       if (profile) {
         avatar_url = profile.avatar_url;
       }

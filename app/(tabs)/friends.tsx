@@ -155,7 +155,7 @@ export default function FriendsScreen() {
       <View style={styles.cardLeft}>
         <View style={[styles.avatar, { backgroundColor: tintColor }]}>
           <ThemedText style={styles.avatarText}>
-            {item.name.charAt(0).toUpperCase()}
+            {(item.name ?? "?").charAt(0).toUpperCase()}
           </ThemedText>
         </View>
         <View style={styles.cardInfo}>
@@ -173,7 +173,7 @@ export default function FriendsScreen() {
       <View style={styles.cardLeft}>
         <View style={[styles.avatar, { backgroundColor: tintColor }]}>
           <ThemedText style={styles.avatarText}>
-            {item.sender_profile?.name.charAt(0).toUpperCase()}
+            {(item.sender_profile?.name ?? "?").charAt(0).toUpperCase()}
           </ThemedText>
         </View>
         <View style={styles.cardInfo}>
@@ -213,7 +213,7 @@ export default function FriendsScreen() {
       <View style={styles.cardLeft}>
         <View style={[styles.avatar, { backgroundColor: tintColor }]}>
           <ThemedText style={styles.avatarText}>
-            {item.receiver_profile?.name.charAt(0).toUpperCase()}
+            {(item.receiver_profile?.name ?? "?").charAt(0).toUpperCase()}
           </ThemedText>
         </View>
         <View style={styles.cardInfo}>

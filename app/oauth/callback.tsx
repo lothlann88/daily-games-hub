@@ -22,6 +22,9 @@ export default function OAuthCallback() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
+    let isMounted = true;
+    let redirectTimeout: NodeJS.Timeout | null = null;
+
     const handleCallback = async () => {
       console.log("[OAuth] Callback handler triggered");
       console.log("[OAuth] Params received:", {
@@ -61,11 +64,15 @@ export default function OAuthCallback() {
             }
           }
 
-          setStatus("success");
-          console.log("[OAuth] Web authentication successful, redirecting to home...");
-          setTimeout(() => {
-            router.replace("/(tabs)");
-          }, 1000);
+          if (isMounted) {
+            setStatus("success");
+            console.log("[OAuth] Web authentication successful, redirecting to home...");
+            redirectTimeout = setTimeout(() => {
+              if (isMounted) {
+                router.replace("/(tabs)");
+              }
+            }, 1000);
+          }
           return;
         }
 
@@ -97,8 +104,10 @@ export default function OAuthCallback() {
           params.error || (url ? new URL(url, "http://dummy").searchParams.get("error") : null);
         if (error) {
           console.error("[OAuth] Error parameter found:", error);
-          setStatus("error");
-          setErrorMessage(error || "OAuth error occurred");
+          if (isMounted) {
+            setStatus("error");
+            setErrorMessage(error || "OAuth error occurred");
+          }
           return;
         }
 
@@ -158,11 +167,15 @@ export default function OAuthCallback() {
           console.log("[OAuth] Session token stored successfully");
           // User info is already in the OAuth callback response
           // No need to fetch from API
-          setStatus("success");
-          console.log("[OAuth] Redirecting to home...");
-          setTimeout(() => {
-            router.replace("/(tabs)");
-          }, 1000);
+          if (isMounted) {
+            setStatus("success");
+            console.log("[OAuth] Redirecting to home...");
+            redirectTimeout = setTimeout(() => {
+              if (isMounted) {
+                router.replace("/(tabs)");
+              }
+            }, 1000);
+          }
           return;
         }
 
@@ -172,8 +185,10 @@ export default function OAuthCallback() {
             hasCode: !!code,
             hasState: !!state,
           });
-          setStatus("error");
-          setErrorMessage("Missing code or state parameter");
+          if (isMounted) {
+            setStatus("error");
+            setErrorMessage("Missing code or state parameter");
+          }
           return;
         }
 
@@ -211,29 +226,45 @@ export default function OAuthCallback() {
             console.log("[OAuth] No user data in result");
           }
 
-          setStatus("success");
-          console.log("[OAuth] Authentication successful, redirecting to home...");
+          if (isMounted) {
+            setStatus("success");
+            console.log("[OAuth] Authentication successful, redirecting to home...");
 
-          // Redirect to home after a short delay
-          setTimeout(() => {
-            console.log("[OAuth] Executing redirect...");
-            router.replace("/(tabs)");
-          }, 1000);
+            // Redirect to home after a short delay
+            redirectTimeout = setTimeout(() => {
+              if (isMounted) {
+                console.log("[OAuth] Executing redirect...");
+                router.replace("/(tabs)");
+              }
+            }, 1000);
+          }
         } else {
           console.error("[OAuth] No session token in result:", result);
-          setStatus("error");
-          setErrorMessage("No session token received");
+          if (isMounted) {
+            setStatus("error");
+            setErrorMessage("No session token received");
+          }
         }
       } catch (error) {
         console.error("[OAuth] Callback error:", error);
-        setStatus("error");
-        setErrorMessage(
-          error instanceof Error ? error.message : "Failed to complete authentication",
-        );
+        if (isMounted) {
+          setStatus("error");
+          setErrorMessage(
+            error instanceof Error ? error.message : "Failed to complete authentication",
+          );
+        }
       }
     };
 
     handleCallback();
+
+    // Cleanup function
+    return () => {
+      isMounted = false;
+      if (redirectTimeout) {
+        clearTimeout(redirectTimeout);
+      }
+    };
   }, [params.code, params.state, params.error, params.sessionToken, params.user, router]);
 
   return (
