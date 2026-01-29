@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   StyleSheet,
   View,
@@ -21,11 +21,32 @@ import { ThemedView } from "@/components/themed-view";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { supabase, isSupabaseConfigured, getSupabaseConfigError } from "@/lib/supabase";
 
+// Debounce utility to prevent rapid clicks
+function createDebouncer(delayMs: number) {
+  let isBlocked = false;
+
+  return function debounce(fn: () => void): boolean {
+    if (isBlocked) return false;
+
+    isBlocked = true;
+    fn();
+
+    setTimeout(() => {
+      isBlocked = false;
+    }, delayMs);
+
+    return true;
+  };
+}
+
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [configError, setConfigError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
+  const [timeoutSeconds, setTimeoutSeconds] = useState(15);
+  const loginDebouncer = useRef(createDebouncer(1000));
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const tintColor = useThemeColor({}, "tint");
@@ -50,19 +71,26 @@ export default function LoginScreen() {
     console.log("[Login] Login button clicked");
     console.log("[Login] Current loading state:", loading);
     console.log("[Login] Email:", email.trim());
-    
+
+    // Debounce check - prevent rapid clicks
+    const canProceed = loginDebouncer.current(() => {});
+    if (!canProceed) {
+      console.log("[Login] Debounced - too many rapid clicks");
+      return;
+    }
+
     if (loading) {
       console.log("[Login] Already loading, ignoring click");
       return;
     }
-    
+
     // Check Supabase configuration before attempting login
     if (configError) {
       console.error("[Login] Cannot login: Supabase not configured");
       Alert.alert("Configuration Error", configError);
       return;
     }
-    
+
     if (!email.trim() || !password.trim()) {
       console.log("[Login] Validation failed: empty email or password");
       Alert.alert("Error", "Please enter both email and password");
@@ -71,13 +99,48 @@ export default function LoginScreen() {
 
     console.log("[Login] Starting login process...");
     setLoading(true);
-    
-    // Add timeout to prevent infinite loading
+    setTimeoutSeconds(15);
+
+    // Visual countdown timer
+    const countdownInterval = setInterval(() => {
+      setTimeoutSeconds((prev) => {
+        if (prev <= 1) {
+          clearInterval(countdownInterval);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    // Reduced timeout: 15 seconds instead of 30
     const timeoutId = setTimeout(() => {
-      console.error("[Login] Login timeout after 30 seconds");
+      console.error("[Login] Login timeout after 15 seconds");
       setLoading(false);
-      Alert.alert("Timeout", "Login is taking too long. Please try again.");
-    }, 30000);
+      clearInterval(countdownInterval);
+
+      // Offer retry with attempt counter
+      Alert.alert(
+        "Connection Timeout",
+        `Login took too long. Would you like to retry? (Attempt ${retryCount + 1}/3)`,
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Retry",
+            onPress: () => {
+              if (retryCount < 2) {
+                setRetryCount(retryCount + 1);
+                setTimeout(() => handleLogin(), 1000);
+              } else {
+                Alert.alert(
+                  "Maximum Retries Reached",
+                  "Please check your internet connection and try again later."
+                );
+              }
+            }
+          }
+        ]
+      );
+    }, 15000);
     
     try {
       console.log("[Login] Calling supabase.auth.signInWithPassword...");
@@ -85,6 +148,9 @@ export default function LoginScreen() {
         email: email.trim(),
         password,
       });
+
+      // Clear countdown on response
+      clearInterval(countdownInterval);
 
       console.log("[Login] Response received:", {
         hasData: !!data,
@@ -96,10 +162,10 @@ export default function LoginScreen() {
 
       if (error) {
         console.error("[Login] Login error:", error);
-        
-        // Handle specific error cases
+
+        // Handle specific error cases with user-friendly messages
         let errorMessage = error.message || "Unable to sign in. Please check your credentials.";
-        
+
         if (error.message?.toLowerCase().includes("invalid login credentials")) {
           errorMessage = "Invalid email or password. Please check your credentials and try again.";
         } else if (error.message?.toLowerCase().includes("email not confirmed")) {
@@ -107,9 +173,9 @@ export default function LoginScreen() {
         } else if (error.message?.toLowerCase().includes("user not found")) {
           errorMessage = "No account found with this email. Please sign up first.";
         } else if (error.message?.toLowerCase().includes("too many requests")) {
-          errorMessage = "Too many login attempts. Please wait a few minutes and try again.";
+          errorMessage = "Too many login attempts. Please wait 5 minutes and try again.";
         }
-        
+
         Alert.alert("Login Failed", errorMessage);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         return;
@@ -123,12 +189,16 @@ export default function LoginScreen() {
 
       console.log("[Login] Login successful:", data.user.id);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      
+
+      // Reset retry count on success
+      setRetryCount(0);
+
       // Explicitly navigate to home screen after successful login
       // Don't rely solely on auth state listener which may not fire
       console.log("[Login] Navigating to home screen...");
       router.replace("/(tabs)");
     } catch (error: any) {
+      clearInterval(countdownInterval);
       console.error("[Login] Caught exception:", error);
       console.error("[Login] Error details:", {
         message: error?.message,
@@ -139,6 +209,7 @@ export default function LoginScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
       clearTimeout(timeoutId);
+      clearInterval(countdownInterval);
       console.log("[Login] Setting loading to false");
       setLoading(false);
     }
@@ -258,7 +329,12 @@ export default function LoginScreen() {
               ]}
             >
               {loading ? (
-                <ActivityIndicator color="#fff" />
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator color="#fff" />
+                  <ThemedText style={styles.loadingText}>
+                    Signing in... ({timeoutSeconds}s)
+                  </ThemedText>
+                </View>
               ) : (
                 <ThemedText style={styles.loginButtonText}>Sign In</ThemedText>
               )}
@@ -391,6 +467,16 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.6,
+  },
+  loadingContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  loadingText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
   },
   signupContainer: {
     flexDirection: "row",

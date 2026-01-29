@@ -43,3 +43,12 @@ export interface Preferences {
 export type GameCategory = "Word Games" | "Puzzles" | "Strategy" | "Trivia" | "Other";
 
 export type GameTag = "Quick" | "Challenging" | "Relaxing" | "Logic" | "Visual" | "Audio" | "Math" | "Geography" | "Music" | "Movies";
+
+export type SyncStatus = "idle" | "syncing" | "success" | "error";
+
+export interface SyncError {
+  message: string;
+  timestamp: number;
+  operation: "upload" | "download" | "profile" | "general";
+  retryable: boolean;
+}

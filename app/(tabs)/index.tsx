@@ -18,6 +18,7 @@ import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { GameCardSimple } from "@/components/game-card-simple";
 import { IconSymbol } from "@/components/ui/icon-symbol";
+import { SyncStatusBanner } from "@/components/sync-status-banner";
 import { useGames, useScores } from "@/hooks/use-storage";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { useAuth } from "@/contexts/auth-context";
@@ -184,6 +185,9 @@ export default function HomeScreen() {
 
   const renderHeader = () => (
     <View style={styles.header}>
+      {/* Sync Status Banner */}
+      <SyncStatusBanner />
+
       {/* Welcome Message */}
       {userProfile && (
         <View style={[styles.welcomeCard, { backgroundColor: cardBackground, borderColor }]}>
@@ -193,7 +197,7 @@ export default function HomeScreen() {
                 {getGreeting()}, {userProfile.name}! 👋
               </ThemedText>
               <ThemedText style={styles.welcomeStats}>
-                {gamesPlayedToday > 0 
+                {gamesPlayedToday > 0
                   ? `You've played ${gamesPlayedToday} ${gamesPlayedToday === 1 ? 'game' : 'games'} today`
                   : "Ready to play some games today?"}
               </ThemedText>

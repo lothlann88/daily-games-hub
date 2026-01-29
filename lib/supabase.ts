@@ -33,17 +33,10 @@ function initializeSupabaseClient(): SupabaseClient {
     const error = "Supabase configuration missing. Please set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY environment variables.";
     console.error("[Supabase]", error);
     configError = error;
-    
-    // Create a minimal dummy client that will throw errors on use
-    // This prevents crashes during SSR but makes auth failures explicit
-    supabaseInstance = createClient("https://placeholder.supabase.co", "placeholder-key", {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-        detectSessionInUrl: false,
-      },
-    });
-    return supabaseInstance;
+
+    // DO NOT create placeholder client - throw error immediately
+    // This forces failures to be explicit rather than silent
+    throw new Error(error);
   }
 
   // Clear any previous config error
@@ -94,8 +87,19 @@ export function getSupabase(): SupabaseClient {
   return initializeSupabaseClient();
 }
 
+// Safe client getter - returns null if config invalid instead of throwing
+export function getSupabaseOrNull(): SupabaseClient | null {
+  try {
+    return initializeSupabaseClient();
+  } catch (error) {
+    console.error("[Supabase] Failed to get client:", error);
+    return null;
+  }
+}
+
 // For backward compatibility, also export as 'supabase'
 // This getter ensures the client is initialized before use
+// Will throw if config is missing (fail-fast approach)
 export const supabase = {
   get auth() {
     return initializeSupabaseClient().auth;
