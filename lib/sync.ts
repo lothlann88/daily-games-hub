@@ -120,7 +120,7 @@ export async function syncScoresToCloud(scores: Score[]): Promise<void> {
       id: score.id,
       user_id: user.id,
       game_id: score.gameId,
-      score: score.score,
+      score: score.score ?? null,
       result: score.result,
       date_played: score.datePlayed,
       notes: score.notes || null,
@@ -200,7 +200,7 @@ export async function fetchScoresFromCloud(): Promise<Score[]> {
     const scores: Score[] = (data || []).map((score) => ({
       id: score.id,
       gameId: score.game_id,
-      score: score.score,
+      ...(score.score != null ? { score: score.score } : {}),
       result: score.result as "win" | "loss" | "draw",
       datePlayed: score.date_played,
       notes: score.notes,

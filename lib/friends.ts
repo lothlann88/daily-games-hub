@@ -484,18 +484,20 @@ export async function getFriendLeaderboard(gameId: string): Promise<FriendLeader
     { best_score: number; total_plays: number; current_streak: number }
   >();
 
+  const noScoreSentinel = -Infinity;
   for (const score of scores) {
+    const numScore = score.score != null ? score.score : noScoreSentinel;
     const existing = userStats.get(score.user_id);
     if (!existing) {
       userStats.set(score.user_id, {
-        best_score: score.score,
+        best_score: numScore,
         total_plays: 1,
         current_streak: 0, // TODO: Calculate streak
       });
     } else {
       existing.total_plays++;
-      if (score.score > existing.best_score) {
-        existing.best_score = score.score;
+      if (numScore !== noScoreSentinel && numScore > existing.best_score) {
+        existing.best_score = numScore;
       }
     }
   }
@@ -544,8 +546,10 @@ export async function getFriendLeaderboard(gameId: string): Promise<FriendLeader
     });
   }
 
-  // Sort by best score and assign ranks
-  entries.sort((a, b) => b.best_score - a.best_score);
+  // Sort by best score (entries with no score go last)
+  const scoreValue = (entry: FriendLeaderboardEntry) =>
+    entry.best_score === -Infinity || !Number.isFinite(entry.best_score) ? -Infinity : entry.best_score;
+  entries.sort((a, b) => scoreValue(b) - scoreValue(a));
   entries.forEach((entry, index) => {
     entry.rank = index + 1;
   });

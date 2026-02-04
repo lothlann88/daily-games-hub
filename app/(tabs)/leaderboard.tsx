@@ -70,6 +70,15 @@ export default function StatsScreen() {
       .sort((a, b) => b.currentStreak - a.currentStreak);
   }, [games]);
 
+  const recordedGamesLog = useMemo(() => {
+    return [...filteredScores]
+      .map((score) => ({
+        ...score,
+        gameName: games.find((g) => g.id === score.gameId)?.name ?? "Unknown game",
+      }))
+      .sort((a, b) => b.datePlayed - a.datePlayed);
+  }, [filteredScores, games]);
+
   if (loading) {
     return (
       <ThemedView style={styles.container}>
@@ -172,6 +181,38 @@ export default function StatsScreen() {
             ))}
           </View>
         )}
+
+        {/* Recorded games log */}
+        <View style={[styles.section, { backgroundColor: cardBackground }]}>
+          <ThemedText type="subtitle" style={styles.sectionTitle}>
+            Recorded Games
+          </ThemedText>
+          {recordedGamesLog.length === 0 ? (
+            <ThemedText style={styles.emptyLog}>No games recorded for this period.</ThemedText>
+          ) : (
+            recordedGamesLog.map((entry) => {
+              const date = new Date(entry.datePlayed);
+              const resultColor =
+                entry.result === "win" ? "#10B981" : entry.result === "loss" ? "#EF4444" : "#F59E0B";
+              return (
+                <View key={entry.id} style={styles.logRow}>
+                  <View style={styles.logMain}>
+                    <ThemedText type="defaultSemiBold">{entry.gameName}</ThemedText>
+                    <ThemedText style={styles.logDate}>{date.toLocaleDateString()}</ThemedText>
+                  </View>
+                  <View style={styles.logMeta}>
+                    <ThemedText style={[styles.logResult, { color: resultColor }]}>
+                      {entry.result.charAt(0).toUpperCase() + entry.result.slice(1)}
+                    </ThemedText>
+                    <ThemedText style={styles.logScore}>
+                      {entry.score !== undefined && entry.score !== null ? entry.score : "—"}
+                    </ThemedText>
+                  </View>
+                </View>
+              );
+            })
+          )}
+        </View>
 
         {/* Game Breakdown */}
         <View style={[styles.section, { backgroundColor: cardBackground }]}>
@@ -325,5 +366,40 @@ const styles = StyleSheet.create({
   gameStatLabel: {
     fontSize: 12,
     opacity: 0.7,
+  },
+  emptyLog: {
+    fontSize: 14,
+    opacity: 0.7,
+  },
+  logRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(0,0,0,0.05)",
+  },
+  logMain: {
+    flex: 1,
+  },
+  logDate: {
+    fontSize: 13,
+    opacity: 0.7,
+    marginTop: 2,
+  },
+  logMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  logResult: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  logScore: {
+    fontSize: 14,
+    opacity: 0.8,
+    minWidth: 28,
+    textAlign: "right",
   },
 });

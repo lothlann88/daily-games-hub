@@ -6,7 +6,6 @@ import {
   Pressable,
   TextInput,
   ActivityIndicator,
-  Alert,
   Modal,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
@@ -38,6 +37,7 @@ export default function GameDetailScreen() {
   const [result, setResult] = useState<"win" | "loss" | "draw">("win");
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
+  const [formMessage, setFormMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [tempDateInput, setTempDateInput] = useState("");
@@ -99,17 +99,15 @@ export default function GameDetailScreen() {
       return;
     }
 
-    if (!scoreValue.trim()) {
-      Alert.alert("Error", "Please enter a score");
-      return;
-    }
+    setFormMessage(null);
 
     setLoading(true);
     try {
+      const parsed = scoreValue.trim() ? parseFloat(scoreValue) : undefined;
       const score: Score = {
         id: `${Date.now()}-${Math.random()}`,
         gameId: game.id,
-        score: parseFloat(scoreValue) || 0,
+        ...(parsed !== undefined && !Number.isNaN(parsed) ? { score: parsed } : {}),
         result,
         datePlayed: selectedDate.getTime(),
         notes: notes.trim() || undefined,
@@ -131,10 +129,10 @@ export default function GameDetailScreen() {
       // Reload recent scores
       await loadRecentScores();
 
-      Alert.alert("Success", "Score logged successfully!");
+      setFormMessage({ type: "success", text: "Game logged successfully!" });
     } catch (error) {
       console.error("Error submitting score:", error);
-      Alert.alert("Error", "Failed to log score");
+      setFormMessage({ type: "error", text: "Failed to log game. Please try again." });
     } finally {
       setLoading(false);
     }
@@ -304,7 +302,7 @@ export default function GameDetailScreen() {
                   </View>
                   <View style={styles.leaderboardRight}>
                     <ThemedText type="defaultSemiBold" style={styles.leaderboardScore}>
-                      {entry.best_score}
+                      {entry.best_score !== -Infinity && Number.isFinite(entry.best_score) ? entry.best_score : "—"}
                     </ThemedText>
                   </View>
                 </View>
@@ -315,7 +313,7 @@ export default function GameDetailScreen() {
 
         <View style={[styles.section, { backgroundColor: cardBackground }]}>
           <ThemedText type="subtitle" style={styles.sectionTitle}>
-            Log Score
+            Log Game
           </ThemedText>
 
 
@@ -430,7 +428,7 @@ export default function GameDetailScreen() {
           </View>
 
           <View style={styles.formGroup}>
-            <ThemedText style={styles.label}>Score</ThemedText>
+            <ThemedText style={styles.label}>Score (optional)</ThemedText>
             <TextInput
               style={[
                 styles.input,
@@ -438,7 +436,7 @@ export default function GameDetailScreen() {
               ]}
               value={scoreValue}
               onChangeText={setScoreValue}
-              placeholder="Enter score"
+              placeholder="Enter score or leave blank"
               placeholderTextColor="#999"
               keyboardType="numeric"
             />
@@ -490,6 +488,28 @@ export default function GameDetailScreen() {
             />
           </View>
 
+          {formMessage && (
+            <View
+              style={[
+                styles.formMessage,
+                formMessage.type === "success"
+                  ? styles.formMessageSuccess
+                  : styles.formMessageError,
+              ]}
+            >
+              <ThemedText
+                style={[
+                  styles.formMessageText,
+                  formMessage.type === "success"
+                    ? styles.formMessageTextSuccess
+                    : styles.formMessageTextError,
+                ]}
+              >
+                {formMessage.text}
+              </ThemedText>
+            </View>
+          )}
+
           <Pressable
             onPress={handleSubmitScore}
             disabled={loading}
@@ -502,7 +522,7 @@ export default function GameDetailScreen() {
             {loading ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <ThemedText style={styles.submitButtonText}>Submit Score</ThemedText>
+              <ThemedText style={styles.submitButtonText}>Log Game</ThemedText>
             )}
           </Pressable>
         </View>
@@ -525,7 +545,9 @@ export default function GameDetailScreen() {
                     </View>
                   </View>
                   <View style={styles.scoreRowRight}>
-                    <ThemedText type="defaultSemiBold">{score.score}</ThemedText>
+                    <ThemedText type="defaultSemiBold">
+                      {score.score !== undefined && score.score !== null ? score.score : "—"}
+                    </ThemedText>
                     <ThemedText
                       style={[
                         styles.scoreResult,
@@ -584,7 +606,8 @@ export default function GameDetailScreen() {
                     setShowDatePicker(false);
                     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                   } else {
-                    Alert.alert("Invalid Date", "Please enter a valid date in YYYY-MM-DD format");
+                    setFormMessage({ type: "error", text: "Please enter a valid date in YYYY-MM-DD format" });
+                    setShowDatePicker(false);
                   }
                 }}
                 style={[styles.modalButton, styles.modalButtonPrimary, { backgroundColor: tintColor }]}
@@ -757,6 +780,28 @@ const styles = StyleSheet.create({
   dateButtonText: {
     fontSize: 14,
     fontWeight: "600",
+  },
+  formMessage: {
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 4,
+  },
+  formMessageSuccess: {
+    backgroundColor: "rgba(52, 199, 89, 0.15)",
+  },
+  formMessageError: {
+    backgroundColor: "rgba(255, 59, 48, 0.15)",
+  },
+  formMessageText: {
+    fontSize: 14,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  formMessageTextSuccess: {
+    color: "#34C759",
+  },
+  formMessageTextError: {
+    color: "#FF3B30",
   },
   submitButton: {
     paddingVertical: 14,

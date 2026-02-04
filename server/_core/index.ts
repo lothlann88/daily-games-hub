@@ -60,6 +60,16 @@ async function startServer() {
     res.json({ ok: true, timestamp: Date.now() });
   });
 
+  // In development, redirect / to the Expo web app (Metro on 8081)
+  const webAppUrl = process.env.EXPO_PUBLIC_WEB_APP_URL || "http://localhost:8081";
+  app.get("/", (_req, res) => {
+    if (process.env.NODE_ENV !== "production") {
+      res.redirect(302, webAppUrl);
+      return;
+    }
+    res.status(404).send("Not found. This is the API server. Use the web or mobile app.");
+  });
+
   app.use(
     "/api/trpc",
     createExpressMiddleware({

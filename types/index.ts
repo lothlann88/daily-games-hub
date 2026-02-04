@@ -28,7 +28,7 @@ export interface UserProfile {
 export interface Score {
   id: string;
   gameId: string;
-  score: number;
+  score?: number; // optional - log can be recorded without a score
   result: "win" | "loss" | "draw";
   datePlayed: number;
   notes?: string;
