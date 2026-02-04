@@ -35,11 +35,13 @@ export default function SettingsScreen() {
   const cardBackground = useThemeColor({}, "card");
   const borderColor = useThemeColor({}, "cardBorder");
   const textColor = useThemeColor({}, "text");
+  const placeholderTextColor = useThemeColor({ light: "#9CA3AF", dark: "#6B7280" }, "icon");
 
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const [isEditingName, setIsEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
+  const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
 
   useEffect(() => {
     loadUserProfile();
@@ -197,6 +199,7 @@ export default function SettingsScreen() {
 
   return (
     <ThemedView style={styles.container}>
+      {/* Name Editing Modal */}
       <Modal
         visible={isEditingName}
         transparent
@@ -210,7 +213,7 @@ export default function SettingsScreen() {
               value={nameDraft}
               onChangeText={setNameDraft}
               placeholder="Enter your name"
-              placeholderTextColor={useThemeColor({ light: "#9CA3AF", dark: "#6B7280" }, "icon")}
+              placeholderTextColor={placeholderTextColor}
               style={[styles.modalInput, { color: textColor, borderColor }]}
               autoFocus
             />
@@ -231,15 +234,64 @@ export default function SettingsScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Sign Out Confirmation Modal */}
+      <Modal
+        visible={showSignOutConfirm}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowSignOutConfirm(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, { backgroundColor: cardBackground, borderColor }]}>
+            <ThemedText type="subtitle">Sign Out</ThemedText>
+            <ThemedText style={styles.infoText}>
+              Are you sure you want to sign out? Your data is safely synced to the cloud.
+            </ThemedText>
+            <View style={styles.modalActions}>
+              <Pressable
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setShowSignOutConfirm(false);
+                }}
+                style={[styles.modalButton, { borderColor }]}
+              >
+                <ThemedText>Cancel</ThemedText>
+              </Pressable>
+              <Pressable
+                onPress={async () => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  setShowSignOutConfirm(false);
+                  try {
+                    console.log("[Settings] Sign out confirmed, calling signOut()");
+                    await signOut();
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                  } catch (error: any) {
+                    console.error("[Settings] Sign out error:", error);
+                    Alert.alert(
+                      "Sign Out Error",
+                      error?.message || "Failed to sign out. Please try again."
+                    );
+                  }
+                }}
+                style={[styles.modalButtonPrimary, { backgroundColor: "#FF3B30" }]}
+              >
+                <ThemedText style={styles.modalButtonPrimaryText}>Sign Out</ThemedText>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
           {
             paddingTop: Math.max(insets.top, 20) + 8,
-            paddingBottom: Math.max(insets.bottom, 20),
+            paddingBottom: Math.max(insets.bottom, 20) + 20,
           },
         ]}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
         <View style={styles.header}>
           <ThemedText type="title">Settings</ThemedText>
@@ -349,26 +401,25 @@ export default function SettingsScreen() {
           </View>
           <Pressable
             onPress={() => {
+              console.log("[Settings] Sign out button pressed");
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-              Alert.alert(
-                "Sign Out",
-                "Are you sure you want to sign out? Your data is safely synced to the cloud.",
-                [
-                  { text: "Cancel", style: "cancel" },
-                  {
-                    text: "Sign Out",
-                    style: "destructive",
-                    onPress: async () => {
-                      await signOut();
-                      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                    },
-                  },
-                ]
-              );
+              setShowSignOutConfirm(true);
             }}
-            style={[styles.settingRow, { backgroundColor: cardBackground, borderColor }]}
+            style={({ pressed }) => [
+              styles.settingRow,
+              {
+                backgroundColor: cardBackground,
+                borderColor,
+                opacity: pressed ? 0.7 : 1,
+              },
+            ]}
+            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
           >
-            <ThemedText style={{ color: "#FF3B30" }}>Sign Out</ThemedText>
+            <View style={styles.settingRowLeft}>
+              <ThemedText type="defaultSemiBold" style={{ color: "#FF3B30" }}>
+                Sign Out
+              </ThemedText>
+            </View>
           </Pressable>
         </View>
 

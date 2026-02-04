@@ -9,6 +9,18 @@ import type {
 } from "@/types/friends";
 
 // ============================================================================
+// VALIDATION HELPERS
+// ============================================================================
+
+/**
+ * Validate UUID format
+ */
+function isValidUUID(uuid: string): boolean {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(uuid);
+}
+
+// ============================================================================
 // FRIEND REQUEST FUNCTIONS
 // ============================================================================
 
@@ -21,19 +33,41 @@ export async function sendFriendRequest(receiverId: string): Promise<void> {
   } = await supabase.auth.getUser();
   if (!user) throw new Error("Not authenticated");
 
+  // Validate receiverId to prevent injection
+  if (!isValidUUID(receiverId)) {
+    throw new Error("Invalid user ID format");
+  }
+
+  // Cannot send request to self
+  if (receiverId === user.id) {
+    throw new Error("Cannot send friend request to yourself");
+  }
+
   // Check if already friends
   const areFriends = await checkAreFriends(receiverId);
   if (areFriends) {
     throw new Error("Already friends with this user");
   }
 
-  // Check if request already exists
-  // Use proper parameterized query to avoid injection issues
-  const { data: existing, error: existingError } = await supabase
-    .from("friend_requests")
-    .select("*")
-    .or(`and(sender_id.eq.${user.id},receiver_id.eq.${receiverId}),and(sender_id.eq.${receiverId},receiver_id.eq.${user.id})`)
-    .maybeSingle();
+  // Check if request already exists using separate parameterized queries
+  // This is safer than using template literals in .or() clause
+  const [outgoingRequest, incomingRequest] = await Promise.all([
+    supabase
+      .from("friend_requests")
+      .select("id")
+      .eq("sender_id", user.id)
+      .eq("receiver_id", receiverId)
+      .maybeSingle(),
+    supabase
+      .from("friend_requests")
+      .select("id")
+      .eq("sender_id", receiverId)
+      .eq("receiver_id", user.id)
+      .maybeSingle()
+  ]);
+
+  const existing = outgoingRequest.data || incomingRequest.data;
+  const existingError = outgoingRequest.error || incomingRequest.error;
   
   // Handle case where no existing request is found (not an error)
   if (existingError && existingError.code !== "PGRST116") {
@@ -217,6 +251,11 @@ export async function getFriends(): Promise<Friend[]> {
  * Remove a friend
  */
 export async function removeFriend(friendId: string): Promise<void> {
+  // Validate friendId to prevent injection
+  if (!isValidUUID(friendId)) {
+    throw new Error("Invalid user ID format");
+  }
+
   const { error } = await supabase.rpc("remove_friendship", {
     friend_user_id: friendId,
   });
@@ -236,7 +275,12 @@ export async function searchUsers(query: string): Promise<SearchResult[]> {
   if (!query || query.trim().length < 2) return [];
 
   // Sanitize query to prevent potential issues
-  const sanitizedQuery = query.trim().replace(/[%_]/g, "");
+  // Remove wildcards and special characters, only allow alphanumeric, spaces, @, ., -
+  const sanitizedQuery = query
+    .trim()
+    .replace(/[%_]/g, "") // Remove SQL wildcards
+    .replace(/[^\w\s@.-]/g, ""); // Only allow safe characters
+
   if (sanitizedQuery.length < 2) return [];
 
   // Search by name or username using parameterized query
@@ -277,6 +321,12 @@ export async function checkAreFriends(friendId: string): Promise<boolean> {
   } = await supabase.auth.getUser();
   if (!user) return false;
 
+  // Validate friendId to prevent injection
+  if (!isValidUUID(friendId)) {
+    console.error("[Friends] Invalid friend ID format:", friendId);
+    return false;
+  }
+
   const { data, error } = await supabase
     .from("friendships")
     .select("id")
@@ -300,6 +350,12 @@ export async function checkPendingRequest(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { has_request: false };
+
+  // Validate userId to prevent injection
+  if (!isValidUUID(userId)) {
+    console.error("[Friends] Invalid user ID format:", userId);
+    return { has_request: false };
+  }
 
   // Check if current user sent request
   const { data: sentRequest, error: sentError } = await supabase

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   StyleSheet,
   View,
@@ -20,19 +20,29 @@ import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useThemeColor } from "@/hooks/use-theme-color";
-import { supabase } from "@/lib/supabase";
+import { supabase, getSupabaseConfigError } from "@/lib/supabase";
 
 export default function RegisterScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [configError, setConfigError] = useState<string | null>(null);
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const tintColor = useThemeColor({}, "tint");
   const cardBackground = useThemeColor({}, "card");
   const borderColor = useThemeColor({}, "cardBorder");
   const inputBackground = useThemeColor({ light: "#FFFFFF", dark: "#2C2C2E" }, "background");
+
+  // Check Supabase configuration on mount
+  useEffect(() => {
+    const error = getSupabaseConfigError();
+    if (error) {
+      console.error("[Register] Supabase configuration error:", error);
+      setConfigError(error);
+    }
+  }, []);
 
   const validateForm = () => {
     if (!email.trim()) {
@@ -61,21 +71,10 @@ export default function RegisterScreen() {
   const handleRegister = async () => {
     if (!validateForm()) return;
 
-    // Check if Supabase is properly configured
-    const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-    const supabaseKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
-    
-    console.log("[Register] Supabase config:", { 
-      hasUrl: !!supabaseUrl, 
-      hasKey: !!supabaseKey,
-      url: supabaseUrl?.substring(0, 20) + "..."
-    });
-    
-    if (!supabaseUrl || !supabaseKey) {
-      Alert.alert(
-        "Configuration Error",
-        "The app is not properly configured. Please contact support."
-      );
+    // Check Supabase configuration before attempting registration
+    if (configError) {
+      console.error("[Register] Cannot register: Supabase not configured");
+      Alert.alert("Configuration Error", configError);
       return;
     }
 
@@ -163,7 +162,7 @@ export default function RegisterScreen() {
             styles.scrollContent,
             {
               paddingTop: Math.max(insets.top, 20) + 20,
-              paddingBottom: Math.max(insets.bottom, 20),
+              paddingBottom: Math.max(insets.bottom, 20) + 40, // Add extra bottom padding to prevent cutoff
             },
           ]}
           showsVerticalScrollIndicator={false}
@@ -198,6 +197,15 @@ export default function RegisterScreen() {
               Sign up to start tracking your daily games
             </ThemedText>
           </View>
+
+          {/* Configuration Error Banner */}
+          {configError && (
+            <View style={[styles.errorBanner, { backgroundColor: "#FEE2E2", borderColor: "#EF4444" }]}>
+              <ThemedText style={[styles.errorText, { color: "#DC2626" }]}>
+                ⚠️ {configError}
+              </ThemedText>
+            </View>
+          )}
 
           {/* Registration Form */}
           <View style={[styles.form, { backgroundColor: cardBackground, borderColor }]}>
@@ -340,6 +348,18 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     opacity: 0.7,
     textAlign: "center",
+  },
+  errorBanner: {
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 16,
+  },
+  errorText: {
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: "center",
+    fontWeight: "500",
   },
   form: {
     borderRadius: 16,

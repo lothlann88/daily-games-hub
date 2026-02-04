@@ -7,14 +7,18 @@ import * as Auth from "@/lib/auth";
 import * as Api from "@/lib/api";
 import { hasCompletedOnboarding } from "@/lib/storage";
 import { syncData } from "@/lib/sync";
+import { SyncStatus, SyncError } from "@/types";
 
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
   syncing: boolean;
+  syncStatus: SyncStatus;
+  syncError: SyncError | null;
   lastSyncTime: number | null;
   signOut: () => Promise<void>;
+  retrySync: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -22,8 +26,11 @@ const AuthContext = createContext<AuthContextType>({
   session: null,
   loading: true,
   syncing: false,
+  syncStatus: "idle",
+  syncError: null,
   lastSyncTime: null,
   signOut: async () => {},
+  retrySync: async () => {},
 });
 
 export function useAuth() {
@@ -43,6 +50,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>("idle");
+  const [syncError, setSyncError] = useState<SyncError | null>(null);
   const [lastSyncTime, setLastSyncTime] = useState<number | null>(null);
   const router = useRouter();
   const segments = useSegments();
@@ -52,23 +61,37 @@ export function AuthProvider({ children }: AuthProviderProps) {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
-      
+
       // Sync data for returning users
       if (session?.user) {
         console.log("[Auth] Returning user detected, syncing data...");
         setSyncing(true);
-        try {
-          await syncData();
+        setSyncStatus("syncing");
+
+        const result = await syncData();
+
+        if (result.success) {
           setLastSyncTime(Date.now());
-          console.log("[Auth] Initial sync completed");
-        } catch (error) {
-          console.error("[Auth] Initial sync failed:", error);
-          // Don't block app start on sync failure
-        } finally {
-          setSyncing(false);
+          setSyncStatus("success");
+          setSyncError(null);
+          console.log("[Auth] Initial sync completed successfully");
+        } else {
+          setSyncStatus("error");
+          setSyncError(result.error || null);
+          console.error("[Auth] Initial sync failed:", result.error);
+
+          // Auto-retry after 30 seconds if retryable
+          if (result.error?.retryable) {
+            console.log("[Auth] Scheduling auto-retry in 30 seconds...");
+            setTimeout(() => {
+              retrySync();
+            }, 30000);
+          }
         }
+
+        setSyncing(false);
       }
-      
+
       setLoading(false);
     });
 
@@ -79,23 +102,37 @@ export function AuthProvider({ children }: AuthProviderProps) {
       console.log("[Auth] State changed:", _event, session?.user?.id);
       setSession(session);
       setUser(session?.user ?? null);
-      
+
       // Trigger sync when user signs in
       if (_event === "SIGNED_IN" && session?.user) {
         console.log("[Auth] User signed in, triggering data sync...");
         setSyncing(true);
-        try {
-          await syncData();
+        setSyncStatus("syncing");
+
+        const result = await syncData();
+
+        if (result.success) {
           setLastSyncTime(Date.now());
+          setSyncStatus("success");
+          setSyncError(null);
           console.log("[Auth] Data sync completed successfully");
-        } catch (error) {
-          console.error("[Auth] Data sync failed:", error);
-          // Don't block login on sync failure
-        } finally {
-          setSyncing(false);
+        } else {
+          setSyncStatus("error");
+          setSyncError(result.error || null);
+          console.error("[Auth] Data sync failed:", result.error);
+
+          // Auto-retry after 30 seconds if retryable
+          if (result.error?.retryable) {
+            console.log("[Auth] Scheduling auto-retry in 30 seconds...");
+            setTimeout(() => {
+              retrySync();
+            }, 30000);
+          }
         }
+
+        setSyncing(false);
       }
-      
+
       setLoading(false);
     });
 
@@ -145,6 +182,33 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
+  const retrySync = async () => {
+    if (!user) {
+      console.log("[Auth] Cannot retry sync - no user");
+      return;
+    }
+
+    console.log("[Auth] Retrying sync...");
+    setSyncing(true);
+    setSyncStatus("syncing");
+    setSyncError(null);
+
+    const result = await syncData();
+
+    if (result.success) {
+      setLastSyncTime(Date.now());
+      setSyncStatus("success");
+      setSyncError(null);
+      console.log("[Auth] Sync retry successful");
+    } else {
+      setSyncStatus("error");
+      setSyncError(result.error || null);
+      console.error("[Auth] Sync retry failed:", result.error);
+    }
+
+    setSyncing(false);
+  };
+
   const signOut = async () => {
     try {
       console.log("[Auth] Sign out initiated");
@@ -175,15 +239,33 @@ export function AuthProvider({ children }: AuthProviderProps) {
         await Auth.clearUserInfo();
       } else if (!isSupabaseConfigured()) {
         console.warn("[Auth] Supabase not configured, skipping remote sign out");
-        // Skip Supabase call but still clear local state
+        // Clear local auth state
+        try {
+          await Auth.removeSessionToken();
+          await Auth.clearUserInfo();
+        } catch (error) {
+          console.error("[Auth] Error clearing local auth state:", error);
+        }
       } else {
         // Call Supabase sign out
         console.log("[Auth] Calling supabase.auth.signOut()...");
-        const { error } = await supabase.auth.signOut();
-
-        if (error) {
-          console.error("[Auth] Sign out error:", error);
-          throw error;
+        try {
+          const { error } = await supabase.auth.signOut();
+          if (error) {
+            console.error("[Auth] Sign out error:", error);
+            // Don't throw - continue with local cleanup
+          }
+        } catch (error: any) {
+          console.error("[Auth] Supabase sign out threw exception:", error);
+          // Continue with local cleanup even if Supabase fails
+        }
+        
+        // Always clear local auth state
+        try {
+          await Auth.removeSessionToken();
+          await Auth.clearUserInfo();
+        } catch (error) {
+          console.error("[Auth] Error clearing local auth state:", error);
         }
       }
 
@@ -201,13 +283,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setUser(null);
       setSession(null);
       setSyncing(false);
+      setSyncStatus("idle");
+      setSyncError(null);
       setLastSyncTime(null);
       router.replace("/auth/login" as any);
     }
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, syncing, lastSyncTime, signOut }}>
+    <AuthContext.Provider value={{ user, session, loading, syncing, syncStatus, syncError, lastSyncTime, signOut, retrySync }}>
       {children}
     </AuthContext.Provider>
   );

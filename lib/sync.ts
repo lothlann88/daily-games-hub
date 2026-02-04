@@ -1,6 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { supabase } from "./supabase";
-import { Game, Score, UserProfile, Preferences } from "@/types";
+import { Game, Score, UserProfile, Preferences, SyncError } from "@/types";
 import { KEYS } from "@/lib/storage";
 
 const SYNC_STATUS_KEY = "@daily_games_sync_status";
@@ -8,6 +8,11 @@ const SYNC_STATUS_KEY = "@daily_games_sync_status";
 interface SyncStatus {
   hasInitialSync: boolean;
   lastSyncTimestamp: number;
+}
+
+interface SyncResult {
+  success: boolean;
+  error?: SyncError;
 }
 
 /**
@@ -338,10 +343,11 @@ export async function hasPerformedInitialSync(): Promise<boolean> {
 /**
  * Main sync function: Decides whether to do initial or full sync
  * Includes 60-second timeout to prevent hanging
+ * Returns detailed error object instead of throwing
  */
-export async function syncData(): Promise<void> {
+export async function syncData(): Promise<SyncResult> {
   console.log("[Sync] Starting sync process...");
-  
+
   try {
     // Add timeout to prevent infinite hanging
     const syncPromise = (async () => {
@@ -366,6 +372,7 @@ export async function syncData(): Promise<void> {
 
     await Promise.race([syncPromise, timeoutPromise]);
     console.log("[Sync] Sync process completed successfully");
+    return { success: true };
   } catch (error: any) {
     console.error("[Sync] Error syncing data:", error);
     console.error("[Sync] Error details:", {
@@ -373,6 +380,36 @@ export async function syncData(): Promise<void> {
       name: error?.name,
       stack: error?.stack,
     });
-    throw error;
+
+    // Determine if error is retryable based on error type
+    const errorMessage = error?.message || "Unknown sync error";
+    const isRetryable =
+      errorMessage.includes("network") ||
+      errorMessage.includes("timeout") ||
+      errorMessage.includes("fetch") ||
+      errorMessage.includes("Failed to fetch") ||
+      errorMessage.includes("NetworkError") ||
+      error?.code === "ECONNREFUSED" ||
+      error?.code === "ETIMEDOUT";
+
+    // Determine operation type based on error context
+    let operation: "upload" | "download" | "profile" | "general" = "general";
+    if (errorMessage.includes("upload") || errorMessage.includes("upsert")) {
+      operation = "upload";
+    } else if (errorMessage.includes("fetch") || errorMessage.includes("download")) {
+      operation = "download";
+    } else if (errorMessage.includes("profile")) {
+      operation = "profile";
+    }
+
+    return {
+      success: false,
+      error: {
+        message: errorMessage,
+        timestamp: Date.now(),
+        operation,
+        retryable: isRetryable,
+      },
+    };
   }
 }
