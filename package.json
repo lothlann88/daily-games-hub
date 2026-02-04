@@ -88,9 +88,7 @@
     "qrcode": "^1.5.4",
     "tsx": "^4.19.1",
     "typescript": "~5.9.2",
-    "vitest": "^4.0.17",
-    "workbox-webpack-plugin": "^7.4.0",
-    "workbox-window": "^7.4.0"
+    "vitest": "^4.0.17"
   },
   "packageManager": "pnpm@9.12.0"
 }
