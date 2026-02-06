@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, ReactNode } from "react";
 import { Platform } from "react-native";
 import { useRouter, useSegments } from "expo-router";
 import { User, Session } from "@supabase/supabase-js";
@@ -55,8 +55,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [lastSyncTime, setLastSyncTime] = useState<number | null>(null);
   const router = useRouter();
   const segments = useSegments();
+  const retrySyncRef = useRef<() => Promise<void>>(async () => {});
 
   useEffect(() => {
+    const timeouts: ReturnType<typeof setTimeout>[] = [];
+
     // Get initial session
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
@@ -83,9 +86,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
           // Auto-retry after 30 seconds if retryable
           if (result.error?.retryable) {
             console.log("[Auth] Scheduling auto-retry in 30 seconds...");
-            setTimeout(() => {
-              retrySync();
+            const tid = setTimeout(() => {
+              retrySyncRef.current?.();
             }, 30000);
+            timeouts.push(tid);
           }
         }
 
@@ -124,9 +128,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
           // Auto-retry after 30 seconds if retryable
           if (result.error?.retryable) {
             console.log("[Auth] Scheduling auto-retry in 30 seconds...");
-            setTimeout(() => {
-              retrySync();
+            const tid = setTimeout(() => {
+              retrySyncRef.current?.();
             }, 30000);
+            timeouts.push(tid);
           }
         }
 
@@ -138,6 +143,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     return () => {
       subscription.unsubscribe();
+      timeouts.forEach(clearTimeout);
     };
   }, []);
 
@@ -208,6 +214,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     setSyncing(false);
   };
+
+  retrySyncRef.current = retrySync;
 
   const signOut = async () => {
     try {

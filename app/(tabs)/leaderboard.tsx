@@ -1,6 +1,7 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { View, StyleSheet, ScrollView, Pressable, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useFocusEffect } from "@react-navigation/native";
 import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/themed-text";
@@ -11,14 +12,21 @@ import { useThemeColor } from "@/hooks/use-theme-color";
 type TimePeriod = "week" | "month" | "all";
 
 export default function StatsScreen() {
-  const { scores, loading: scoresLoading } = useScores();
-  const { games, loading: gamesLoading } = useGames();
+  const { scores, loading: scoresLoading, refresh: refreshScores } = useScores();
+  const { games, loading: gamesLoading, refresh: refreshGames } = useGames();
   const [timePeriod, setTimePeriod] = useState<TimePeriod>("all");
   const insets = useSafeAreaInsets();
   const tintColor = useThemeColor({}, "tint");
   const cardBackground = useThemeColor({}, "card");
 
   const loading = scoresLoading || gamesLoading;
+
+  useFocusEffect(
+    useCallback(() => {
+      refreshScores();
+      refreshGames();
+    }, [refreshScores, refreshGames])
+  );
 
   const filteredScores = useMemo(() => {
     const now = Date.now();

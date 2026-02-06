@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback, memo } from "react";
 import {
   StyleSheet,
   FlatList,
@@ -29,6 +29,189 @@ import { Game, GameCategory, GameTag, UserProfile } from "@/types";
 import { AVAILABLE_TAGS } from "@/constants/tags";
 
 const CATEGORIES: Array<GameCategory | "All"> = ["All", "Word Games", "Puzzles", "Strategy", "Trivia"];
+
+type HomeHeaderProps = {
+  greeting: string;
+  userProfile: UserProfile | null;
+  gamesPlayedToday: number;
+  syncing: boolean;
+  lastSyncTime: string | null;
+  filteredGamesCount: number;
+  favoriteGamesCount: number;
+  inputBackground: string;
+  borderColor: string;
+  textColor: string;
+  placeholderColor: string;
+  tintColor: string;
+  cardBackground: string;
+  searchQuery: string;
+  selectedCategory: GameCategory | "All";
+  selectedTags: GameTag[];
+  onSearchChange: (value: string) => void;
+  onClearSearch: () => void;
+  onSelectCategory: (category: GameCategory | "All") => void;
+  onToggleTag: (tag: GameTag) => void;
+};
+
+const HomeHeader = memo(
+  ({
+    greeting,
+    userProfile,
+    gamesPlayedToday,
+    syncing,
+    lastSyncTime,
+    filteredGamesCount,
+    favoriteGamesCount,
+    inputBackground,
+    borderColor,
+    textColor,
+    placeholderColor,
+    tintColor,
+    cardBackground,
+    searchQuery,
+    selectedCategory,
+    selectedTags,
+    onSearchChange,
+    onClearSearch,
+    onSelectCategory,
+    onToggleTag,
+  }: HomeHeaderProps) => (
+    <View style={styles.header}>
+      {/* Sync Status Banner */}
+      <SyncStatusBanner />
+
+      {/* Welcome Message */}
+      {userProfile && (
+        <View style={[styles.welcomeCard, { backgroundColor: cardBackground, borderColor }]}>
+          <View style={styles.welcomeHeader}>
+            <View style={{ flex: 1 }}>
+              <ThemedText type="subtitle" style={styles.welcomeGreeting}>
+                {greeting}, {userProfile.name}! 👋
+              </ThemedText>
+              <ThemedText style={styles.welcomeStats}>
+                {gamesPlayedToday > 0
+                  ? `You've played ${gamesPlayedToday} ${gamesPlayedToday === 1 ? "game" : "games"} today`
+                  : "Ready to play some games today?"}
+              </ThemedText>
+            </View>
+            {syncing && (
+              <View style={styles.syncIndicator}>
+                <ActivityIndicator size="small" color={tintColor} />
+                <ThemedText style={styles.syncText}>Syncing...</ThemedText>
+              </View>
+            )}
+            {!syncing && lastSyncTime && (
+              <ThemedText style={styles.syncText}>
+                ✓ Synced
+              </ThemedText>
+            )}
+          </View>
+        </View>
+      )}
+
+      <ThemedText type="title" style={styles.mainTitle}>Daily Games Hub</ThemedText>
+
+      {/* Version indicator */}
+      <ThemedText style={styles.versionText}>
+        v{process.env.EXPO_PUBLIC_VERCEL_GIT_COMMIT_SHA?.substring(0, 7) || "1.0.0"}
+      </ThemedText>
+
+      <ThemedText style={styles.description}>
+        Your central hub for daily puzzle games. Track scores, build streaks, and compete with friends across 24+ games. Built for fun and convenience!
+      </ThemedText>
+      <ThemedText style={styles.subtitle}>
+        {filteredGamesCount} {filteredGamesCount === 1 ? "game" : "games"}
+        {favoriteGamesCount > 0 && ` · ${favoriteGamesCount} ⭐`}
+      </ThemedText>
+
+      {/* Search bar */}
+      <View style={[styles.searchContainer, { backgroundColor: inputBackground, borderColor }]}>
+        <IconSymbol name="magnifyingglass" size={20} color={tintColor} />
+        <TextInput
+          style={[styles.searchInput, { color: textColor }]}
+          placeholder="Search games..."
+          placeholderTextColor={placeholderColor}
+          value={searchQuery}
+          onChangeText={onSearchChange}
+        />
+        {searchQuery.length > 0 && (
+          <Pressable
+            onPress={onClearSearch}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <IconSymbol name="xmark.circle.fill" size={20} color={tintColor} />
+          </Pressable>
+        )}
+      </View>
+
+      {/* Category filters */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.categoriesContainer}
+      >
+        {CATEGORIES.map((category) => (
+          <Pressable
+            key={category}
+            onPress={() => onSelectCategory(category)}
+            style={[
+              styles.categoryChip,
+              {
+                backgroundColor:
+                  selectedCategory === category ? tintColor : cardBackground,
+                borderColor,
+              },
+            ]}
+          >
+            <ThemedText
+              style={[
+                styles.categoryChipText,
+                { color: selectedCategory === category ? "#fff" : tintColor },
+              ]}
+            >
+              {category}
+            </ThemedText>
+          </Pressable>
+        ))}
+      </ScrollView>
+
+      {/* Tag Filters */}
+      {AVAILABLE_TAGS.length > 0 && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.tagsContainer}
+        >
+          {AVAILABLE_TAGS.map((tag) => {
+            const isSelected = selectedTags.includes(tag);
+            return (
+              <Pressable
+                key={tag}
+                onPress={() => onToggleTag(tag)}
+                style={[
+                  styles.tagChip,
+                  {
+                    backgroundColor: isSelected ? tintColor : cardBackground,
+                    borderColor: isSelected ? tintColor : borderColor,
+                  },
+                ]}
+              >
+                <ThemedText
+                  style={[
+                    styles.tagChipText,
+                    { color: isSelected ? "#fff" : tintColor },
+                  ]}
+                >
+                  {tag}
+                </ThemedText>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      )}
+    </View>
+  )
+);
 
 export default function HomeScreen() {
   const { games, loading, refresh, updateGame, deleteGame } = useGames();
@@ -120,6 +303,27 @@ export default function HomeScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
+  const handleSearchChange = useCallback((value: string) => {
+    setSearchQuery(value);
+  }, []);
+
+  const handleClearSearch = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setSearchQuery("");
+  }, []);
+
+  const handleSelectCategory = useCallback((category: GameCategory | "All") => {
+    setSelectedCategory(category);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, []);
+
+  const handleToggleTag = useCallback((tag: GameTag) => {
+    setSelectedTags((prev) =>
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+    );
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, []);
+
   // Filter and sort games
   const filteredGames = useMemo(() => {
     let filtered = games;
@@ -158,6 +362,8 @@ export default function HomeScreen() {
     return games.filter((game) => game.isFavorite);
   }, [games]);
 
+  const greeting = getGreeting();
+
   const renderGame = ({ item }: { item: Game }) => (
         <GameCardSimple
       game={item}
@@ -182,156 +388,6 @@ export default function HomeScreen() {
       return lastPlayed && new Date(lastPlayed).toDateString() === today;
     }).length;
   }, [games]);
-
-  const renderHeader = () => (
-    <View style={styles.header}>
-      {/* Sync Status Banner */}
-      <SyncStatusBanner />
-
-      {/* Welcome Message */}
-      {userProfile && (
-        <View style={[styles.welcomeCard, { backgroundColor: cardBackground, borderColor }]}>
-          <View style={styles.welcomeHeader}>
-            <View style={{ flex: 1 }}>
-              <ThemedText type="subtitle" style={styles.welcomeGreeting}>
-                {getGreeting()}, {userProfile.name}! 👋
-              </ThemedText>
-              <ThemedText style={styles.welcomeStats}>
-                {gamesPlayedToday > 0
-                  ? `You've played ${gamesPlayedToday} ${gamesPlayedToday === 1 ? 'game' : 'games'} today`
-                  : "Ready to play some games today?"}
-              </ThemedText>
-            </View>
-            {syncing && (
-              <View style={styles.syncIndicator}>
-                <ActivityIndicator size="small" color={tintColor} />
-                <ThemedText style={styles.syncText}>Syncing...</ThemedText>
-              </View>
-            )}
-            {!syncing && lastSyncTime && (
-              <ThemedText style={styles.syncText}>
-                ✓ Synced
-              </ThemedText>
-            )}
-          </View>
-        </View>
-      )}
-
-      <ThemedText type="title" style={styles.mainTitle}>Daily Games Hub</ThemedText>
-      
-      {/* Version indicator */}
-      <ThemedText style={styles.versionText}>
-        v{process.env.EXPO_PUBLIC_VERCEL_GIT_COMMIT_SHA?.substring(0, 7) || "1.0.0"}
-      </ThemedText>
-      
-      <ThemedText style={styles.description}>
-        Your central hub for daily puzzle games. Track scores, build streaks, and compete with friends across 24+ games. Built for fun and convenience!
-      </ThemedText>
-      <ThemedText style={styles.subtitle}>
-        {filteredGames.length} {filteredGames.length === 1 ? "game" : "games"}
-        {favoriteGames.length > 0 && ` · ${favoriteGames.length} ⭐`}
-      </ThemedText>
-
-      {/* Search bar */}
-      <View style={[styles.searchContainer, { backgroundColor: inputBackground, borderColor }]}>
-        <IconSymbol name="magnifyingglass" size={20} color={tintColor} />
-        <TextInput
-          style={[styles.searchInput, { color: textColor }]}
-          placeholder="Search games..."
-          placeholderTextColor={placeholderColor}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-        {searchQuery.length > 0 && (
-          <Pressable 
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setSearchQuery("");
-            }}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <IconSymbol name="xmark.circle.fill" size={20} color={tintColor} />
-          </Pressable>
-        )}
-      </View>
-
-      {/* Category filters */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.categoriesContainer}
-      >
-        {CATEGORIES.map((category) => (
-          <Pressable
-            key={category}
-            onPress={() => {
-              setSelectedCategory(category);
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            }}
-            style={[
-              styles.categoryChip,
-              {
-                backgroundColor:
-                  selectedCategory === category ? tintColor : cardBackground,
-                borderColor,
-              },
-            ]}
-          >
-            <ThemedText
-              style={[
-                styles.categoryChipText,
-                { color: selectedCategory === category ? "#fff" : tintColor },
-              ]}
-            >
-              {category}
-            </ThemedText>
-          </Pressable>
-        ))}
-      </ScrollView>
-
-      {/* Tag Filters */}
-      {AVAILABLE_TAGS.length > 0 && (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.tagsContainer}
-        >
-          {AVAILABLE_TAGS.map((tag) => {
-            const isSelected = selectedTags.includes(tag);
-            return (
-              <Pressable
-                key={tag}
-                onPress={() => {
-                  setSelectedTags((prev) =>
-                    isSelected
-                      ? prev.filter((t) => t !== tag)
-                      : [...prev, tag]
-                  );
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                }}
-                style={[
-                  styles.tagChip,
-                  {
-                    backgroundColor: isSelected ? tintColor : cardBackground,
-                    borderColor: isSelected ? tintColor : borderColor,
-                  },
-                ]}
-              >
-                <ThemedText
-                  style={[
-                    styles.tagChipText,
-                    { color: isSelected ? "#fff" : tintColor },
-                  ]}
-                >
-                  {tag}
-                </ThemedText>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-      )}
-    </View>
-  );
 
   const renderEmpty = () => (
     <View style={styles.emptyContainer}>
@@ -362,7 +418,30 @@ export default function HomeScreen() {
         data={filteredGames}
         renderItem={renderGame}
         keyExtractor={(item) => item.id}
-        ListHeaderComponent={renderHeader}
+        ListHeaderComponent={
+          <HomeHeader
+            greeting={greeting}
+            userProfile={userProfile}
+            gamesPlayedToday={gamesPlayedToday}
+            syncing={syncing}
+            lastSyncTime={lastSyncTime}
+            filteredGamesCount={filteredGames.length}
+            favoriteGamesCount={favoriteGames.length}
+            inputBackground={inputBackground}
+            borderColor={borderColor}
+            textColor={textColor}
+            placeholderColor={placeholderColor}
+            tintColor={tintColor}
+            cardBackground={cardBackground}
+            searchQuery={searchQuery}
+            selectedCategory={selectedCategory}
+            selectedTags={selectedTags}
+            onSearchChange={handleSearchChange}
+            onClearSearch={handleClearSearch}
+            onSelectCategory={handleSelectCategory}
+            onToggleTag={handleToggleTag}
+          />
+        }
         ListEmptyComponent={renderEmpty}
         refreshControl={
           <RefreshControl

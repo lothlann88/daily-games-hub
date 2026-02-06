@@ -3,17 +3,54 @@ import { Game, UserProfile, Score, Preferences } from "@/types";
 
 export const KEYS = {
   GAMES: "games",
+  DEFAULT_GAME_IDS_OFFERED: "defaultGameIdsOffered",
   USER_PROFILE: "userProfile",
   SCORES: "scores",
   PREFERENCES: "preferences",
   ONBOARDING_COMPLETE: "onboardingComplete",
 };
 
-// Games
+// Games: merge in any new default games so all users see them
 export async function getGames(): Promise<Game[]> {
   try {
     const data = await AsyncStorage.getItem(KEYS.GAMES);
-    return data ? JSON.parse(data) : getDefaultGames();
+    const storedGames: Game[] = data ? JSON.parse(data) : [];
+    const defaultGames = getDefaultGames();
+    const offeredData = await AsyncStorage.getItem(KEYS.DEFAULT_GAME_IDS_OFFERED);
+    const offeredIds: string[] = offeredData ? JSON.parse(offeredData) : [];
+    const currentDefaultIds = defaultGames.map((g) => g.id);
+    const newDefaultIds = currentDefaultIds.filter((id) => !offeredIds.includes(id));
+    const storedIds = new Set(storedGames.map((g) => g.id));
+    const toAdd = defaultGames.filter(
+      (g) => newDefaultIds.includes(g.id) && !storedIds.has(g.id)
+    );
+    if (toAdd.length > 0) {
+      const merged: Game[] = [
+        ...storedGames,
+        ...toAdd.map((g) => ({ ...g, dateAdded: Date.now() })),
+      ];
+      await saveGames(merged);
+      await AsyncStorage.setItem(
+        KEYS.DEFAULT_GAME_IDS_OFFERED,
+        JSON.stringify(currentDefaultIds)
+      );
+      return merged;
+    }
+    if (storedGames.length === 0) {
+      await saveGames(defaultGames);
+      await AsyncStorage.setItem(
+        KEYS.DEFAULT_GAME_IDS_OFFERED,
+        JSON.stringify(currentDefaultIds)
+      );
+      return defaultGames;
+    }
+    if (offeredIds.length === 0) {
+      await AsyncStorage.setItem(
+        KEYS.DEFAULT_GAME_IDS_OFFERED,
+        JSON.stringify(currentDefaultIds)
+      );
+    }
+    return storedGames;
   } catch (error) {
     console.error("Error loading games:", error);
     return getDefaultGames();
@@ -299,17 +336,17 @@ function getDefaultGames(): Game[] {
     },
     {
       id: "britannica-revealed",
-      name: "Britannica Revealed",
+      name: "Revealed",
       url: "https://www.britannica.com/games/revealed",
-      category: "Word Games",
+      category: "Puzzles",
       icon: "📖",
       dateAdded: Date.now(),
       currentStreak: 0,
       longestStreak: 0,
       playHistory: [],
       isFavorite: false,
-      tags: [],
-      notes: "Guess the topic using the fewest reveals and hints. Tap black boxes to reveal words.",
+      tags: ["Quick", "Logic"],
+      notes: "Daily puzzle from Britannica. Guess the topic using the fewest reveals and hints. Tap black boxes to reveal words.",
     },
     {
       id: "redactle-unlimited",
