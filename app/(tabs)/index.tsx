@@ -1,413 +1,153 @@
-import { useState, useEffect, useMemo, useCallback, memo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  StyleSheet,
-  FlatList,
-  RefreshControl,
-  View,
-  Pressable,
   ActivityIndicator,
+  FlatList,
+  Pressable,
+  RefreshControl,
+  StyleSheet,
+  Text,
   TextInput,
-  Alert,
-  ScrollView,
+  View,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 
-import { ThemedText } from "@/components/themed-text";
+import { GameGlyph } from "@/components/game-glyph";
+import { StreakGrid, buildHistoryDays } from "@/components/streak-grid";
 import { ThemedView } from "@/components/themed-view";
-import { GameCardSimple } from "@/components/game-card-simple";
-import { IconSymbol } from "@/components/ui/icon-symbol";
-import { SyncStatusBanner } from "@/components/sync-status-banner";
-import { useGames, useScores } from "@/hooks/use-storage";
-import { useThemeColor } from "@/hooks/use-theme-color";
-import { useAuth } from "@/contexts/auth-context";
-import { wasPlayedToday } from "@/lib/streaks";
+import { Colors, Fonts, streakColor, type Palette } from "@/constants/theme";
+import { useColorScheme } from "@/hooks/use-color-scheme";
+import { useGames } from "@/hooks/use-storage";
 import { fetchGameLogo } from "@/lib/logo-fetcher";
-import { getUserProfile } from "@/lib/storage";
-import { Game, GameCategory, GameTag, UserProfile } from "@/types";
-import { AVAILABLE_TAGS } from "@/constants/tags";
+import { wasPlayedToday } from "@/lib/streaks";
+import type { Game } from "@/types";
 
-const CATEGORIES: Array<GameCategory | "All"> = ["All", "Word Games", "Puzzles", "Strategy", "Trivia"];
+const SERIF = Fonts!.serif;
+const SANS = Fonts!.sans;
 
-type HomeHeaderProps = {
-  greeting: string;
-  userProfile: UserProfile | null;
-  gamesPlayedToday: number;
-  syncing: boolean;
-  lastSyncTime: string | null;
-  filteredGamesCount: number;
-  favoriteGamesCount: number;
-  inputBackground: string;
-  borderColor: string;
-  textColor: string;
-  placeholderColor: string;
-  tintColor: string;
-  cardBackground: string;
-  searchQuery: string;
-  selectedCategory: GameCategory | "All";
-  selectedTags: GameTag[];
-  onSearchChange: (value: string) => void;
-  onClearSearch: () => void;
-  onSelectCategory: (category: GameCategory | "All") => void;
-  onToggleTag: (tag: GameTag) => void;
-};
+type GameWithFlag = Game & { playedToday: boolean };
 
-const HomeHeader = memo(
-  ({
-    greeting,
-    userProfile,
-    gamesPlayedToday,
-    syncing,
-    lastSyncTime,
-    filteredGamesCount,
-    favoriteGamesCount,
-    inputBackground,
-    borderColor,
-    textColor,
-    placeholderColor,
-    tintColor,
-    cardBackground,
-    searchQuery,
-    selectedCategory,
-    selectedTags,
-    onSearchChange,
-    onClearSearch,
-    onSelectCategory,
-    onToggleTag,
-  }: HomeHeaderProps) => (
-    <View style={styles.header}>
-      {/* Sync Status Banner */}
-      <SyncStatusBanner />
-
-      {/* Welcome Message */}
-      {userProfile && (
-        <View style={[styles.welcomeCard, { backgroundColor: cardBackground, borderColor }]}>
-          <View style={styles.welcomeHeader}>
-            <View style={{ flex: 1 }}>
-              <ThemedText type="subtitle" style={styles.welcomeGreeting}>
-                {greeting}, {userProfile.name}! 👋
-              </ThemedText>
-              <ThemedText style={styles.welcomeStats}>
-                {gamesPlayedToday > 0
-                  ? `You've played ${gamesPlayedToday} ${gamesPlayedToday === 1 ? "game" : "games"} today`
-                  : "Ready to play some games today?"}
-              </ThemedText>
-            </View>
-            {syncing && (
-              <View style={styles.syncIndicator}>
-                <ActivityIndicator size="small" color={tintColor} />
-                <ThemedText style={styles.syncText}>Syncing...</ThemedText>
-              </View>
-            )}
-            {!syncing && lastSyncTime && (
-              <ThemedText style={styles.syncText}>
-                ✓ Synced
-              </ThemedText>
-            )}
-          </View>
-        </View>
-      )}
-
-      <ThemedText type="title" style={styles.mainTitle}>Daily Games Hub</ThemedText>
-
-      {/* Version indicator */}
-      <ThemedText style={styles.versionText}>
-        v{process.env.EXPO_PUBLIC_VERCEL_GIT_COMMIT_SHA?.substring(0, 7) || "1.0.0"}
-      </ThemedText>
-
-      <ThemedText style={styles.description}>
-        Your central hub for daily puzzle games. Track scores, build streaks, and compete with friends across 24+ games. Built for fun and convenience!
-      </ThemedText>
-      <ThemedText style={styles.subtitle}>
-        {filteredGamesCount} {filteredGamesCount === 1 ? "game" : "games"}
-        {favoriteGamesCount > 0 && ` · ${favoriteGamesCount} ⭐`}
-      </ThemedText>
-
-      {/* Search bar */}
-      <View style={[styles.searchContainer, { backgroundColor: inputBackground, borderColor }]}>
-        <IconSymbol name="magnifyingglass" size={20} color={tintColor} />
-        <TextInput
-          style={[styles.searchInput, { color: textColor }]}
-          placeholder="Search games..."
-          placeholderTextColor={placeholderColor}
-          value={searchQuery}
-          onChangeText={onSearchChange}
-        />
-        {searchQuery.length > 0 && (
-          <Pressable
-            onPress={onClearSearch}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <IconSymbol name="xmark.circle.fill" size={20} color={tintColor} />
-          </Pressable>
-        )}
-      </View>
-
-      {/* Category filters */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.categoriesContainer}
-      >
-        {CATEGORIES.map((category) => (
-          <Pressable
-            key={category}
-            onPress={() => onSelectCategory(category)}
-            style={[
-              styles.categoryChip,
-              {
-                backgroundColor:
-                  selectedCategory === category ? tintColor : cardBackground,
-                borderColor,
-              },
-            ]}
-          >
-            <ThemedText
-              style={[
-                styles.categoryChipText,
-                { color: selectedCategory === category ? "#fff" : tintColor },
-              ]}
-            >
-              {category}
-            </ThemedText>
-          </Pressable>
-        ))}
-      </ScrollView>
-
-      {/* Tag Filters */}
-      {AVAILABLE_TAGS.length > 0 && (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.tagsContainer}
-        >
-          {AVAILABLE_TAGS.map((tag) => {
-            const isSelected = selectedTags.includes(tag);
-            return (
-              <Pressable
-                key={tag}
-                onPress={() => onToggleTag(tag)}
-                style={[
-                  styles.tagChip,
-                  {
-                    backgroundColor: isSelected ? tintColor : cardBackground,
-                    borderColor: isSelected ? tintColor : borderColor,
-                  },
-                ]}
-              >
-                <ThemedText
-                  style={[
-                    styles.tagChipText,
-                    { color: isSelected ? "#fff" : tintColor },
-                  ]}
-                >
-                  {tag}
-                </ThemedText>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-      )}
+type SearchIconProps = { color: string; size?: number };
+function SearchIcon({ color, size = 16 }: SearchIconProps) {
+  // Tiny inline glyph using two views — no external icon dep, scales fine.
+  const ringSize = size * 0.7;
+  return (
+    <View style={{ width: size, height: size, alignItems: "center", justifyContent: "center" }}>
+      <View
+        style={{
+          width: ringSize,
+          height: ringSize,
+          borderRadius: ringSize / 2,
+          borderWidth: 1.5,
+          borderColor: color,
+        }}
+      />
+      <View
+        style={{
+          position: "absolute",
+          right: 0,
+          bottom: 0,
+          width: size * 0.32,
+          height: 1.5,
+          backgroundColor: color,
+          transform: [{ rotate: "45deg" }],
+        }}
+      />
     </View>
-  )
-);
+  );
+}
 
 export default function HomeScreen() {
-  const { games, loading, refresh, updateGame, deleteGame } = useGames();
-  const { scores } = useScores();
-  const { syncing, lastSyncTime } = useAuth();
-  const [refreshing, setRefreshing] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState<GameCategory | "All">("All");
-  const [selectedTags, setSelectedTags] = useState<GameTag[]>([]);
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const insets = useSafeAreaInsets();
+  const { games, loading, refresh, updateGame } = useGames();
   const router = useRouter();
-  const tintColor = useThemeColor({}, "tint");
-  const cardBackground = useThemeColor({}, "card");
-  const borderColor = useThemeColor({}, "cardBorder");
-  const inputBackground = useThemeColor({ light: "#F9FAFB", dark: "#374151" }, "card");
-  const textColor = useThemeColor({}, "text");
-  const placeholderColor = useThemeColor({ light: "#9CA3AF", dark: "#6B7280" }, "icon");
+  const insets = useSafeAreaInsets();
+  const scheme = useColorScheme() ?? "light";
+  const palette = Colors[scheme];
 
-  // Load user profile
+  const [refreshing, setRefreshing] = useState(false);
+  const [query, setQuery] = useState("");
+
+  // Best-effort logo backfill (kept from original implementation).
+  const gamesMissingLogos = useMemo(
+    () => games.filter((g) => !g.logoUrl),
+    [games]
+  );
   useEffect(() => {
-    const loadProfile = async () => {
-      const profile = await getUserProfile();
-      setUserProfile(profile);
-    };
-    loadProfile();
-  }, []);
-
-  const gamesMissingLogos = useMemo(() => games.filter((game) => !game.logoUrl), [games]);
-
-  // Fetch logos for games that don't have them
-  useEffect(() => {
-    const fetchLogos = async () => {
+    if (gamesMissingLogos.length === 0) return;
+    let cancelled = false;
+    (async () => {
       for (const game of gamesMissingLogos) {
+        if (cancelled) return;
         const logoUrl = await fetchGameLogo(game.url);
-        if (logoUrl) {
+        if (logoUrl && !cancelled) {
           await updateGame(game.id, { logoUrl });
         }
       }
+    })();
+    return () => {
+      cancelled = true;
     };
-    if (gamesMissingLogos.length > 0) {
-      fetchLogos();
-    }
   }, [gamesMissingLogos, updateGame]);
 
-  const onRefresh = async () => {
+  const enriched: GameWithFlag[] = useMemo(
+    () => games.map((g) => ({ ...g, playedToday: wasPlayedToday(g) })),
+    [games]
+  );
+
+  const active = useMemo(
+    () =>
+      enriched
+        .filter((g) => g.currentStreak > 0)
+        .sort((a, b) => b.currentStreak - a.currentStreak),
+    [enriched]
+  );
+  const top = active[0];
+  const unplayedToday = useMemo(
+    () => enriched.filter((g) => !g.playedToday).length,
+    [enriched]
+  );
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return enriched
+      .filter((g) => !q || g.name.toLowerCase().includes(q))
+      .sort((a, b) => {
+        if (a.playedToday !== b.playedToday) return a.playedToday ? 1 : -1;
+        return b.currentStreak - a.currentStreak;
+      });
+  }, [enriched, query]);
+
+  const handleOpenGame = useCallback(
+    (gameId: string) => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+      router.push({ pathname: "/game-detail" as any, params: { gameId } });
+    },
+    [router]
+  );
+
+  const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     await refresh();
     setRefreshing(false);
-  };
+  }, [refresh]);
 
-  const handleGamePress = (game: Game) => {
-    console.log("[Home] Game pressed:", { gameId: game.id, gameName: game.name });
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    console.log("[Home] Navigating to game detail...");
-    try {
-      router.push({ pathname: "/game-detail" as any, params: { gameId: game.id } });
-      console.log("[Home] Navigation initiated");
-    } catch (error) {
-      console.error("[Home] Navigation error:", error);
-    }
-  };
-
-  const handleAddGame = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.push("/add-game" as any);
-  };
-
-  const handleDeleteGame = (gameId: string, gameName: string) => {
-    Alert.alert(
-      "Delete Game",
-      `Are you sure you want to delete "${gameName}"?`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: async () => {
-            await deleteGame(gameId);
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          },
-        },
-      ]
-    );
-  };
-
-  const handleToggleFavorite = async (gameId: string, currentFavorite: boolean) => {
-    await updateGame(gameId, { isFavorite: !currentFavorite });
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  };
-
-  const handleSearchChange = useCallback((value: string) => {
-    setSearchQuery(value);
-  }, []);
-
-  const handleClearSearch = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setSearchQuery("");
-  }, []);
-
-  const handleSelectCategory = useCallback((category: GameCategory | "All") => {
-    setSelectedCategory(category);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  }, []);
-
-  const handleToggleTag = useCallback((tag: GameTag) => {
-    setSelectedTags((prev) =>
-      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
-    );
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  }, []);
-
-  // Filter and sort games
-  const filteredGames = useMemo(() => {
-    let filtered = games;
-
-    // Apply category filter
-    if (selectedCategory !== "All") {
-      filtered = filtered.filter((game) => game.category === selectedCategory);
-    }
-
-    // Apply tag filter
-    if (selectedTags.length > 0) {
-      filtered = filtered.filter((game) =>
-        selectedTags.every((tag) => game.tags.includes(tag))
-      );
-    }
-
-    // Apply search filter
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        (game) =>
-          game.name.toLowerCase().includes(query) ||
-          game.category.toLowerCase().includes(query)
-      );
-    }
-
-    // Sort: favorites first, then by name
-    return filtered.sort((a, b) => {
-      if (a.isFavorite && !b.isFavorite) return -1;
-      if (!a.isFavorite && b.isFavorite) return 1;
-      return a.name.localeCompare(b.name);
-    });
-  }, [games, selectedCategory, selectedTags, searchQuery]);
-
-  const favoriteGames = useMemo(() => {
-    return games.filter((game) => game.isFavorite);
-  }, [games]);
-
-  const greeting = getGreeting();
-
-  const renderGame = ({ item }: { item: Game }) => (
-        <GameCardSimple
-      game={item}
-      onPress={() => handleGamePress(item)}
-      onDelete={() => handleDeleteGame(item.id, item.name)}
-      onToggleFavorite={() => handleToggleFavorite(item.id, item.isFavorite)}
-      isPlayedToday={wasPlayedToday(item)}
-    />
-  );
-
-  const getGreeting = () => {
-    const hour = new Date().getHours();
-    if (hour < 12) return "Good morning";
-    if (hour < 18) return "Good afternoon";
-    return "Good evening";
-  };
-
-  const gamesPlayedToday = useMemo(() => {
-    const today = new Date().toDateString();
-    return games.filter(game => {
-      const lastPlayed = game.playHistory?.[game.playHistory.length - 1];
-      return lastPlayed && new Date(lastPlayed).toDateString() === today;
-    }).length;
-  }, [games]);
-
-  const renderEmpty = () => (
-    <View style={styles.emptyContainer}>
-      <ThemedText style={styles.emptyText}>
-        {searchQuery || selectedCategory !== "All"
-          ? "No games found"
-          : "No games yet"}
-      </ThemedText>
-      <ThemedText style={styles.emptySubtext}>
-        {searchQuery || selectedCategory !== "All"
-          ? "Try adjusting your filters"
-          : "Tap the + button to add your first game"}
-      </ThemedText>
-    </View>
+  const renderGame = useCallback(
+    ({ item, index }: { item: GameWithFlag; index: number }) => (
+      <GameRow
+        game={item}
+        palette={palette}
+        isLast={index === filtered.length - 1}
+        onPress={() => handleOpenGame(item.id)}
+      />
+    ),
+    [filtered.length, handleOpenGame, palette]
   );
 
   if (loading) {
     return (
-      <ThemedView style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={tintColor} />
+      <ThemedView style={[styles.container, styles.center]}>
+        <ActivityIndicator size="large" color={palette.tint} />
       </ThemedView>
     );
   }
@@ -415,211 +155,628 @@ export default function HomeScreen() {
   return (
     <ThemedView style={styles.container}>
       <FlatList
-        data={filteredGames}
+        data={filtered}
+        keyExtractor={(g) => g.id}
         renderItem={renderGame}
-        keyExtractor={(item) => item.id}
         ListHeaderComponent={
-          <HomeHeader
-            greeting={greeting}
-            userProfile={userProfile}
-            gamesPlayedToday={gamesPlayedToday}
-            syncing={syncing}
-            lastSyncTime={lastSyncTime}
-            filteredGamesCount={filteredGames.length}
-            favoriteGamesCount={favoriteGames.length}
-            inputBackground={inputBackground}
-            borderColor={borderColor}
-            textColor={textColor}
-            placeholderColor={placeholderColor}
-            tintColor={tintColor}
-            cardBackground={cardBackground}
-            searchQuery={searchQuery}
-            selectedCategory={selectedCategory}
-            selectedTags={selectedTags}
-            onSearchChange={handleSearchChange}
-            onClearSearch={handleClearSearch}
-            onSelectCategory={handleSelectCategory}
-            onToggleTag={handleToggleTag}
+          <Header
+            top={top}
+            active={active}
+            unplayedToday={unplayedToday}
+            filteredCount={filtered.length}
+            query={query}
+            onQueryChange={setQuery}
+            onOpenGame={handleOpenGame}
+            palette={palette}
+            scheme={scheme}
           />
         }
-        ListEmptyComponent={renderEmpty}
+        ListEmptyComponent={
+          <View style={styles.emptyWrap}>
+            <Text style={[styles.emptyTitle, { color: palette.text }]}>
+              {query ? "No matches" : "No games yet"}
+            </Text>
+            <Text style={[styles.emptyBody, { color: palette.muted }]}>
+              {query
+                ? "Try a different name."
+                : "Add a game from the + button to start a streak."}
+            </Text>
+          </View>
+        }
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={tintColor}
+            onRefresh={handleRefresh}
+            tintColor={palette.tint}
           />
         }
-        contentContainerStyle={[
-          styles.listContent,
-          {
-            paddingTop: Math.max(insets.top, 20),
-            paddingBottom: Math.max(insets.bottom, 20) + 80,
-          },
-        ]}
+        contentContainerStyle={{
+          paddingBottom: Math.max(insets.bottom, 20) + 140,
+          paddingHorizontal: 0,
+        }}
         showsVerticalScrollIndicator={false}
       />
-
-      {/* Floating add button */}
-      <Pressable
-        onPress={handleAddGame}
-        style={[
-          styles.floatingButton,
-          {
-            backgroundColor: tintColor,
-            bottom: Math.max(insets.bottom, 20) + 70,
-          },
-        ]}
-      >
-        <IconSymbol name="plus" size={28} color="#fff" />
-      </Pressable>
     </ThemedView>
   );
 }
+
+// ──────────────────────────────────────────────────────────────────────────
+// Header (masthead + streak hero + search + section rule)
+// ──────────────────────────────────────────────────────────────────────────
+
+type HeaderProps = {
+  top?: GameWithFlag;
+  active: GameWithFlag[];
+  unplayedToday: number;
+  filteredCount: number;
+  query: string;
+  onQueryChange: (v: string) => void;
+  onOpenGame: (id: string) => void;
+  palette: Palette;
+  scheme: "light" | "dark";
+};
+
+function Header({
+  top,
+  active,
+  unplayedToday,
+  filteredCount,
+  query,
+  onQueryChange,
+  onOpenGame,
+  palette,
+  scheme,
+}: HeaderProps) {
+  const insets = useSafeAreaInsets();
+  return (
+    <View>
+      {/* Status-bar spacer (60px in spec, plus safe-area top) */}
+      <View style={{ height: Math.max(insets.top, 20) + 40 }} />
+
+      {/* Masthead */}
+      <View
+        style={[
+          styles.masthead,
+          { borderBottomColor: palette.hairline },
+        ]}
+      >
+        <Text
+          style={[
+            styles.wordmarkLine,
+            { color: palette.text, fontFamily: SERIF },
+          ]}
+          allowFontScaling={false}
+        >
+          The Daily
+        </Text>
+        <Text
+          style={[
+            styles.wordmarkLine,
+            styles.wordmarkItalic,
+            { color: palette.text, fontFamily: SERIF },
+          ]}
+          allowFontScaling={false}
+        >
+          Games
+        </Text>
+        <Text
+          style={[
+            styles.subhead,
+            { color: palette.muted, fontFamily: SANS },
+          ]}
+        >
+          {unplayedToday} games left today.
+          {top ? (
+            <>
+              {"  "}Longest streak alive —{" "}
+              <Text style={{ color: palette.text, fontWeight: "500" }}>
+                {top.currentStreak} days
+              </Text>{" "}
+              of {top.name}.
+            </>
+          ) : null}
+        </Text>
+      </View>
+
+      {/* Streak hero card */}
+      {top ? (
+        <StreakHero
+          top={top}
+          others={active.slice(1)}
+          palette={palette}
+          scheme={scheme}
+          onOpenGame={onOpenGame}
+        />
+      ) : null}
+
+      {/* Search */}
+      <View style={styles.searchWrap}>
+        <View
+          style={[
+            styles.searchInner,
+            { borderBottomColor: palette.hairline },
+          ]}
+        >
+          <SearchIcon color={palette.muted} />
+          <TextInput
+            value={query}
+            onChangeText={onQueryChange}
+            placeholder="Search the library"
+            placeholderTextColor={palette.muted}
+            style={{
+              flex: 1,
+              color: palette.text,
+              fontSize: 15,
+              fontFamily: SERIF,
+              fontStyle: query ? "normal" : "italic",
+              paddingVertical: 0,
+            }}
+          />
+        </View>
+      </View>
+
+      {/* § Library section rule */}
+      <View style={styles.sectionRule}>
+        <Text
+          style={[
+            styles.sectionLabel,
+            { color: palette.muted, fontFamily: SERIF },
+          ]}
+        >
+          § Library
+        </Text>
+        <View
+          style={{
+            flex: 1,
+            height: StyleSheet.hairlineWidth,
+            backgroundColor: palette.hairline,
+            marginHorizontal: 12,
+          }}
+        />
+        <Text
+          style={{
+            fontSize: 11,
+            color: palette.muted,
+            letterSpacing: 0.3,
+            fontFamily: SANS,
+          }}
+        >
+          {filteredCount} {filteredCount === 1 ? "title" : "titles"}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// Streak hero card
+// ──────────────────────────────────────────────────────────────────────────
+
+type StreakHeroProps = {
+  top: GameWithFlag;
+  others: GameWithFlag[];
+  palette: Palette;
+  scheme: "light" | "dark";
+  onOpenGame: (id: string) => void;
+};
+
+function StreakHero({
+  top,
+  others,
+  palette,
+  scheme,
+  onOpenGame,
+}: StreakHeroProps) {
+  const history = useMemo(() => buildHistoryDays(top.playHistory, 70), [top.playHistory]);
+  return (
+    <View
+      style={[
+        styles.heroCard,
+        {
+          backgroundColor: palette.surface,
+          borderColor: palette.hairline,
+        },
+      ]}
+    >
+      <Pressable
+        onPress={() => onOpenGame(top.id)}
+        style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+      >
+        <Text
+          style={[
+            styles.heroEyebrow,
+            { color: palette.tint, fontFamily: SERIF },
+          ]}
+        >
+          — Longest active streak —
+        </Text>
+        <Text
+          style={[
+            styles.heroGameName,
+            { color: palette.text, fontFamily: SERIF },
+          ]}
+        >
+          {top.name}
+        </Text>
+        <Text
+          style={[
+            styles.heroBest,
+            { color: palette.muted, fontFamily: SANS },
+          ]}
+        >
+          Best ever · {top.longestStreak} days
+        </Text>
+
+        <View style={styles.heroNumberRow}>
+          <Text
+            style={[
+              styles.heroNumber,
+              { color: palette.tint, fontFamily: SERIF },
+            ]}
+            allowFontScaling={false}
+          >
+            {top.currentStreak}
+          </Text>
+          <Text
+            style={[
+              styles.heroNumberLabel,
+              { color: palette.muted, fontFamily: SANS },
+            ]}
+          >
+            DAYS RUNNING
+          </Text>
+        </View>
+
+        <StreakGrid
+          history={history}
+          accent={palette.tint}
+          dark={scheme === "dark"}
+          cell={11}
+          gap={3}
+        />
+      </Pressable>
+
+      {others.length > 0 ? (
+        <View
+          style={[
+            styles.heroRibbon,
+            { borderTopColor: palette.hairline },
+          ]}
+        >
+          <Text
+            style={[
+              styles.heroRibbonLabel,
+              { color: palette.muted, fontFamily: SERIF },
+            ]}
+          >
+            and {others.length} more —
+          </Text>
+          <View style={styles.heroChips}>
+            {others.map((g) => {
+              const color = streakColor(g.currentStreak, g.playedToday, palette);
+              return (
+                <Pressable
+                  key={g.id}
+                  onPress={() => onOpenGame(g.id)}
+                  hitSlop={6}
+                  style={({ pressed }) => [
+                    styles.heroChip,
+                    { opacity: pressed ? 0.7 : 1 },
+                  ]}
+                >
+                  <Text
+                    style={{
+                      fontSize: 13,
+                      color: palette.muted,
+                      fontFamily: SANS,
+                    }}
+                  >
+                    {g.name}
+                  </Text>
+                  <Text
+                    style={{
+                      fontFamily: SERIF,
+                      fontSize: 15,
+                      fontWeight: "500",
+                      color,
+                      letterSpacing: -0.2,
+                    }}
+                    allowFontScaling={false}
+                  >
+                    {g.currentStreak}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// Game row (library list item)
+// ──────────────────────────────────────────────────────────────────────────
+
+type GameRowProps = {
+  game: GameWithFlag;
+  palette: Palette;
+  isLast: boolean;
+  onPress: () => void;
+};
+
+function GameRow({ game, palette, isLast, onPress }: GameRowProps) {
+  const color = streakColor(game.currentStreak, game.playedToday, palette);
+  const lastPlayedLabel = formatLastPlayed(game);
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.row,
+        {
+          opacity: pressed ? 0.6 : game.playedToday ? 0.85 : 1,
+          borderBottomColor: palette.hairline,
+          borderBottomWidth: isLast ? 0 : StyleSheet.hairlineWidth,
+        },
+      ]}
+    >
+      <GameGlyph game={game} size={44} radius={6} />
+      <View style={styles.rowMain}>
+        <Text
+          numberOfLines={1}
+          style={[
+            styles.rowTitle,
+            {
+              color: palette.text,
+              fontFamily: SERIF,
+              textDecorationLine: game.playedToday ? "line-through" : "none",
+              textDecorationColor: palette.muted,
+            },
+          ]}
+        >
+          {game.name}
+        </Text>
+        <Text
+          numberOfLines={1}
+          style={[
+            styles.rowSubtitle,
+            { color: palette.muted, fontFamily: SERIF },
+          ]}
+        >
+          {game.category} — {lastPlayedLabel}
+        </Text>
+      </View>
+      <View style={styles.rowRight}>
+        {game.currentStreak > 0 ? (
+          <>
+            <Text
+              style={[
+                styles.rowStreakValue,
+                { color, fontFamily: SERIF },
+              ]}
+              allowFontScaling={false}
+            >
+              {game.currentStreak}
+            </Text>
+            <Text
+              style={[
+                styles.rowStreakLabel,
+                { color: palette.muted, fontFamily: SANS },
+              ]}
+            >
+              DAYS
+            </Text>
+          </>
+        ) : (
+          <Text
+            style={{
+              fontFamily: SERIF,
+              fontSize: 18,
+              color: palette.muted,
+              letterSpacing: -0.2,
+            }}
+            allowFontScaling={false}
+          >
+            —
+          </Text>
+        )}
+      </View>
+    </Pressable>
+  );
+}
+
+function formatLastPlayed(game: GameWithFlag): string {
+  if (game.playedToday) return "today";
+  if (!game.lastPlayed) return "never played";
+  const days = Math.floor(
+    (Date.now() - game.lastPlayed) / (24 * 60 * 60 * 1000)
+  );
+  if (days <= 0) return "today";
+  if (days === 1) return "last played yesterday";
+  if (days < 7) return `last played ${days} days ago`;
+  const d = new Date(game.lastPlayed);
+  return `last played ${d.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  })}`;
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// Styles
+// ──────────────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  loadingContainer: {
-    flex: 1,
+  center: {
     justifyContent: "center",
     alignItems: "center",
   },
-  listContent: {
-    paddingHorizontal: 0,
+  masthead: {
+    paddingTop: 20,
+    paddingHorizontal: 24,
+    paddingBottom: 28,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  header: {
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-    gap: 12,
+  wordmarkLine: {
+    fontSize: 44,
+    fontWeight: "500",
+    letterSpacing: -1.2,
+    lineHeight: 44 * 0.96,
   },
-  welcomeCard: {
-    padding: 16,
-    borderRadius: 12,
+  wordmarkItalic: {
+    fontStyle: "italic",
+    fontWeight: "400",
+    marginBottom: 14,
+  },
+  subhead: {
+    fontSize: 14,
+    lineHeight: 21,
+  },
+  heroCard: {
+    marginTop: 24,
+    marginHorizontal: 24,
+    paddingTop: 22,
+    paddingHorizontal: 22,
+    paddingBottom: 20,
+    borderRadius: 4,
     borderWidth: 1,
-    marginBottom: 8,
   },
-  welcomeGreeting: {
+  heroEyebrow: {
+    fontSize: 11,
+    fontStyle: "italic",
+    letterSpacing: 0.3,
     marginBottom: 4,
   },
-  welcomeStats: {
-    fontSize: 14,
-    lineHeight: 20,
-    opacity: 0.7,
+  heroGameName: {
+    fontSize: 26,
+    fontWeight: "500",
+    letterSpacing: -0.6,
+    lineHeight: 26 * 1.1,
+    marginBottom: 2,
   },
-  welcomeHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
+  heroBest: {
+    fontSize: 12,
+    marginBottom: 18,
   },
-  syncIndicator: {
+  heroNumberRow: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-end",
+    marginBottom: 18,
+  },
+  heroNumber: {
+    fontSize: 84,
+    fontWeight: "500",
+    letterSpacing: -2.5,
+    lineHeight: 84 * 0.85,
+    includeFontPadding: false,
+  },
+  heroNumberLabel: {
+    fontSize: 11,
+    letterSpacing: 1.2,
+    marginLeft: 10,
+    marginBottom: 6,
+  },
+  heroRibbon: {
+    marginTop: 20,
+    paddingTop: 16,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    // Note: dotted hairline would use borderStyle: 'dotted' but RN's dotted
+    // borders are flaky on Android. The solid hairline reads close enough.
+  },
+  heroRibbonLabel: {
+    fontSize: 11,
+    fontStyle: "italic",
+    marginBottom: 10,
+  },
+  heroChips: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 14,
+  },
+  heroChip: {
+    flexDirection: "row",
+    alignItems: "baseline",
     gap: 6,
   },
-  syncText: {
-    fontSize: 12,
-    opacity: 0.6,
+  searchWrap: {
+    paddingHorizontal: 24,
+    paddingTop: 24,
   },
-  mainTitle: {
-    marginBottom: 8,
-  },
-  versionText: {
-    fontSize: 12,
-    opacity: 0.5,
-    marginTop: -4,
-    marginBottom: 8,
-  },
-  description: {
-    fontSize: 16,
-    lineHeight: 24,
-    opacity: 0.8,
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontSize: 14,
-    lineHeight: 20,
-    opacity: 0.6,
-    marginTop: 8,
-  },
-  searchContainer: {
+  searchInner: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 12,
+    gap: 8,
     paddingVertical: 10,
-    borderRadius: 12,
-    borderWidth: 1,
-    gap: 8,
-    marginTop: 4,
+    borderBottomWidth: 1,
   },
-  searchInput: {
+  sectionRule: {
+    paddingTop: 28,
+    paddingBottom: 12,
+    paddingHorizontal: 24,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  sectionLabel: {
+    fontSize: 11,
+    fontStyle: "italic",
+    textTransform: "uppercase",
+    letterSpacing: 1.5,
+  },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    paddingVertical: 16,
+    marginHorizontal: 24,
+  },
+  rowMain: {
     flex: 1,
-    fontSize: 16,
-    lineHeight: 22,
+    minWidth: 0,
   },
-  categoriesContainer: {
-    gap: 8,
-    paddingVertical: 4,
-  },
-  categoryChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-  },
-  categoryChipText: {
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  tagsContainer: {
-    gap: 8,
-    paddingVertical: 4,
-    paddingBottom: 8,
-  },
-  tagChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    borderWidth: 1,
-  },
-  tagChipText: {
-    fontSize: 12,
+  rowTitle: {
+    fontSize: 20,
     fontWeight: "500",
+    letterSpacing: -0.4,
+    lineHeight: 22,
+    marginBottom: 4,
   },
-  categoryText: {
-    fontSize: 14,
-    fontWeight: "600",
-    lineHeight: 20,
+  rowSubtitle: {
+    fontSize: 12,
+    fontStyle: "italic",
   },
-  emptyContainer: {
-    paddingVertical: 60,
+  rowRight: {
+    minWidth: 48,
+    alignItems: "flex-end",
+  },
+  rowStreakValue: {
+    fontSize: 24,
+    fontWeight: "500",
+    letterSpacing: -0.5,
+    lineHeight: 24,
+    includeFontPadding: false,
+  },
+  rowStreakLabel: {
+    fontSize: 10,
+    letterSpacing: 0.8,
+    marginTop: 2,
+  },
+  emptyWrap: {
+    paddingTop: 60,
     paddingHorizontal: 32,
     alignItems: "center",
     gap: 8,
   },
-  emptyText: {
+  emptyTitle: {
     fontSize: 18,
     fontWeight: "600",
-    textAlign: "center",
+    fontFamily: SERIF,
   },
-  emptySubtext: {
+  emptyBody: {
     fontSize: 14,
-    opacity: 0.6,
     textAlign: "center",
-  },
-  floatingButton: {
-    position: "absolute",
-    right: 20,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    justifyContent: "center",
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+    fontFamily: SANS,
   },
 });
