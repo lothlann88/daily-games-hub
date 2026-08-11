@@ -5,7 +5,6 @@ import {
   TextInput,
   Pressable,
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -43,6 +42,8 @@ export default function LoginScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  // Rendered inline: RN-web's Alert.alert is a no-op, so alerts never show on web
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const loginDebouncer = useRef(createDebouncer(1000));
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -58,10 +59,11 @@ export default function LoginScreen() {
     if (!canProceed || loading) return;
 
     if (!email.trim() || !password.trim()) {
-      Alert.alert("Error", "Please enter both email and password");
+      setErrorMessage("Please enter both email and password.");
       return;
     }
 
+    setErrorMessage(null);
     setLoading(true);
     try {
       console.log("[Login] Signing in...");
@@ -76,16 +78,16 @@ export default function LoginScreen() {
     } catch (error: any) {
       console.error("[Login] Login error:", error);
 
-      let errorMessage = "Unable to sign in. Please try again.";
+      let message = "Unable to sign in. Please try again.";
       if (error?.status === 400) {
-        errorMessage = "Invalid email or password. Please check your credentials and try again.";
+        message = "Invalid email or password. Sign in with your email address, not your username.";
       } else if (error?.status === 429) {
-        errorMessage = "Too many login attempts. Please wait a moment and try again.";
+        message = "Too many login attempts. Please wait a moment and try again.";
       } else if (error?.status === 0) {
-        errorMessage = "Could not reach the server. Please check your connection and try again.";
+        message = "Could not reach the server. Please check your connection and try again.";
       }
 
-      Alert.alert("Login Failed", errorMessage);
+      setErrorMessage(message);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
       setLoading(false);
@@ -164,6 +166,10 @@ export default function LoginScreen() {
                 editable={!loading}
               />
             </View>
+
+            {errorMessage && (
+              <ThemedText style={styles.errorText}>{errorMessage}</ThemedText>
+            )}
 
             <Pressable
               onPress={handleLogin}
@@ -250,6 +256,13 @@ const styles = StyleSheet.create({
   },
   formGroup: {
     marginBottom: 20,
+  },
+  errorText: {
+    color: "#DC2626",
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 16,
+    textAlign: "center",
   },
   label: {
     fontSize: 14,
