@@ -141,9 +141,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Handle navigation based on auth state
+  // Handle navigation based on auth state. Also waits while a sync is in
+  // flight: the first sync on a new device decides whether onboarding is
+  // needed (it adopts an existing cloud profile), so redirecting before it
+  // finishes would bounce an already-onboarded user into onboarding again.
   useEffect(() => {
-    if (loading) return;
+    if (loading || syncing) return;
 
     const inAuthGroup = segments[0] === "auth";
     const inOnboarding = segments[0] === "onboarding";
@@ -167,7 +170,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // Authenticated, not in onboarding, not in tabs -> check onboarding
       checkOnboardingAndRedirect();
     }
-  }, [user, loading, segments]);
+  }, [user, loading, syncing, segments]);
 
   const checkOnboardingAndRedirect = async () => {
     const completed = await hasCompletedOnboarding();

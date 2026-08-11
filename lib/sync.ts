@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { pb, currentUserId } from "./pocketbase";
 import { Game, Score, UserProfile, SyncError } from "@/types";
-import { KEYS } from "@/lib/storage";
+import { KEYS, setOnboardingComplete } from "@/lib/storage";
 
 const SYNC_STATUS_KEY = "@daily_games_sync_status";
 
@@ -385,8 +385,21 @@ export async function syncData(): Promise<SyncResult> {
       console.log("[Sync] Has initial sync:", hasInitialSync);
 
       if (!hasInitialSync) {
-        console.log("[Sync] Performing initial sync (upload local data)...");
-        await performInitialSync();
+        // First sync on THIS device. If the account already has a profile in
+        // the cloud (onboarded on another device, or name set by the admin),
+        // adopt it and download — uploading this device's empty state and
+        // re-running onboarding would be wrong.
+        const cloudProfile = await fetchUserProfileFromCloud().catch(() => null);
+        if (cloudProfile?.name) {
+          console.log("[Sync] Existing account detected, adopting cloud profile...");
+          await AsyncStorage.setItem(KEYS.USER_PROFILE, JSON.stringify(cloudProfile));
+          await setOnboardingComplete();
+          await updateSyncStatus({ hasInitialSync: true });
+          await performFullSync();
+        } else {
+          console.log("[Sync] Performing initial sync (upload local data)...");
+          await performInitialSync();
+        }
       } else {
         console.log("[Sync] Performing full sync (download and merge)...");
         await performFullSync();

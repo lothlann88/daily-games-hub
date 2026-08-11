@@ -4,24 +4,35 @@ import { ActivityIndicator, View } from "react-native";
 
 import { EditorialTabBar } from "@/components/editorial-tab-bar";
 import { Colors } from "@/constants/theme";
+import { useAuth } from "@/contexts/auth-context";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { hasCompletedOnboarding } from "@/lib/storage";
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   const router = useRouter();
+  const { loading, syncing } = useAuth();
   const [isCheckingOnboarding, setIsCheckingOnboarding] = useState(true);
 
+  // Wait for the first sync before reading the local onboarding flag: on a
+  // new device the sync adopts an existing cloud profile and marks onboarding
+  // complete, so checking too early bounces existing users into onboarding.
   useEffect(() => {
-    const checkOnboarding = async () => {
+    if (loading || syncing) return;
+    let cancelled = false;
+    (async () => {
       const completed = await hasCompletedOnboarding();
+      if (cancelled) return;
       if (!completed) {
         router.replace("/onboarding");
       }
       setIsCheckingOnboarding(false);
+    })();
+    return () => {
+      cancelled = true;
     };
-    checkOnboarding();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, syncing]);
 
   if (isCheckingOnboarding) {
     return (
