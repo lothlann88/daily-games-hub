@@ -62,3 +62,9 @@ Thumbs.db
 *.tgz
 *.tar.gz
 .cache/
+
+# PocketBase (live data, local dev binary, web build output served by PB)
+server/pb_data/
+server/pb_data_dev/
+server/.dev/
+server/pb_public/

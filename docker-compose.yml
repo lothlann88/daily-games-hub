@@ -1,0 +1,45 @@
+services:
+  pocketbase:
+    build: ./server
+    container_name: dailygame
+    restart: unless-stopped
+    ports:
+      # Host bind IP and port are configurable (defaults are safe for a
+      # single-host setup). PB_BIND=127.0.0.1 keeps it host-only; setting it to
+      # a Tailscale IP exposes it to the tailnet only (admin + your devices),
+      # off the LAN and public internet. PB_PORT avoids clashes with other
+      # containers on the host (grey-tide already holds 8095 there).
+      - "${PB_BIND:-127.0.0.1}:${PB_PORT:-8096}:8090"
+    environment:
+      - TZ=Europe/London
+    volumes:
+      # Unraid: point pb_data at appdata, e.g. /mnt/user/appdata/dailygame/pb_data
+      - ${PB_DATA_DIR:-/mnt/user/appdata/dailygame/pb_data}:/pb/pb_data
+      - ./server/pb_migrations:/pb/pb_migrations:ro
+      - ./server/pb_hooks:/pb/pb_hooks:ro
+      - ./server/pb_public:/pb/pb_public:ro
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8090/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # Public access via Cloudflare Tunnel (dailygame.handani.dev). Off by default:
+  # this service only starts when COMPOSE_PROFILES=tunnel and a token are set in
+  # the host .env, so a plain deploy never spins a token-less connector. On the
+  # shared compose network it reaches PocketBase at http://dailygame:8090 — set
+  # that as the public hostname's service in the Cloudflare dashboard. The token
+  # is dashboard-managed (Zero Trust → Networks → Tunnels), so hostname routing
+  # and Access policies (e.g. locking /_/) live there, not here.
+  cloudflared:
+    image: cloudflare/cloudflared:2026.7.3
+    container_name: dailygame-tunnel
+    restart: unless-stopped
+    profiles: ["tunnel"]
+    command: tunnel --no-autoupdate run
+    environment:
+      # Empty default (not :?) so a plain deploy — which interpolates every
+      # service before profile filtering — never errors on the missing token.
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN:-}
+    depends_on:
+      - pocketbase

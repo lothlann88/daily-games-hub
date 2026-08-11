@@ -1,0 +1,9 @@
+# The build only needs the Dockerfile; migrations, hooks and pb_public are
+# bind-mounted at run time by docker-compose. Keep the live dev database and
+# the local PocketBase binary out of the build context entirely.
+pb_data/
+pb_data_dev/
+.dev/
+pb_public/
+pb_migrations/
+pb_hooks/
