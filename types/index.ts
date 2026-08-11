@@ -35,8 +35,6 @@ export interface Score {
 }
 
 export interface Preferences {
-  remindersEnabled: boolean;
-  reminderTime: string; // HH:MM format
   favoriteGameIds: string[];
 }
 
