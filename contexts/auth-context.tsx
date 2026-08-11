@@ -1,10 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState, ReactNode } from "react";
-import { Platform } from "react-native";
 import { useRouter, useSegments } from "expo-router";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
-import * as Auth from "@/lib/auth";
-import * as Api from "@/lib/api";
 import { hasCompletedOnboarding } from "@/lib/storage";
 import { syncData } from "@/lib/sync";
 import { SyncStatus, SyncError } from "@/types";
@@ -221,41 +218,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       console.log("[Auth] Sign out initiated");
 
-      const [sessionToken, cachedUser] = await Promise.all([
-        Auth.getSessionToken(),
-        Auth.getUserInfo(),
-      ]);
-      const hasOAuthSession = Boolean(sessionToken || cachedUser);
-
-      if (Platform.OS === "web") {
-        console.log("[Auth] Web sign out detected, calling Api.logout()");
-        try {
-          await Api.logout();
-        } catch (error) {
-          console.error("[Auth] Web logout API call failed:", error);
-        }
-        await Auth.removeSessionToken();
-        await Auth.clearUserInfo();
-      } else if (hasOAuthSession) {
-        console.log("[Auth] OAuth session detected, calling Api.logout()");
-        try {
-          await Api.logout();
-        } catch (error) {
-          console.error("[Auth] OAuth logout API call failed:", error);
-        }
-        await Auth.removeSessionToken();
-        await Auth.clearUserInfo();
-      } else if (!isSupabaseConfigured()) {
+      if (!isSupabaseConfigured()) {
         console.warn("[Auth] Supabase not configured, skipping remote sign out");
-        // Clear local auth state
-        try {
-          await Auth.removeSessionToken();
-          await Auth.clearUserInfo();
-        } catch (error) {
-          console.error("[Auth] Error clearing local auth state:", error);
-        }
       } else {
-        // Call Supabase sign out
         console.log("[Auth] Calling supabase.auth.signOut()...");
         try {
           const { error } = await supabase.auth.signOut();
@@ -266,14 +231,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
         } catch (error: any) {
           console.error("[Auth] Supabase sign out threw exception:", error);
           // Continue with local cleanup even if Supabase fails
-        }
-        
-        // Always clear local auth state
-        try {
-          await Auth.removeSessionToken();
-          await Auth.clearUserInfo();
-        } catch (error) {
-          console.error("[Auth] Error clearing local auth state:", error);
         }
       }
 
