@@ -1,3 +1,9 @@
+# Explicit project name: both this app and grey-tide deploy from a directory
+# named "app" on the same host, and compose derives the project name from the
+# directory — without this, deploying one stack adopts and replaces the
+# other's containers (this happened on first deploy, 11 Aug 2026).
+name: dailygame
+
 services:
   pocketbase:
     build: ./server
