@@ -1,0 +1,3 @@
+# Server files are rsynced to a Linux host; CRLF breaks shell scripts and
+# PocketBase hook/migration files.
+* text=auto eol=lf

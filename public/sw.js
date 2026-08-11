@@ -1,4 +1,4 @@
-const CACHE_NAME = 'daily-games-hub-v1';
+const CACHE_NAME = 'daily-games-hub-v2';
 const PRECACHE_URLS = [
   '/',
   '/index.html',
@@ -28,8 +28,8 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // Network-first for API and Supabase calls
-  if (url.pathname.startsWith('/api/') || url.hostname.includes('supabase')) {
+  // Network-first for API calls (and never touch the PocketBase admin UI)
+  if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/_/')) {
     event.respondWith(
       fetch(event.request).catch(() => caches.match(event.request))
     );

@@ -18,8 +18,11 @@ import { ThemedView } from "@/components/themed-view";
 import { Colors, Fonts } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { useGames, useScores } from "@/hooks/use-storage";
+import { getFriendLeaderboard } from "@/lib/friends";
+import { syncGamesToCloud, syncScoresToCloud } from "@/lib/sync";
 import { updateGameStreaks, wasPlayedToday } from "@/lib/streaks";
 import type { Score } from "@/types";
+import type { FriendLeaderboardEntry } from "@/types/friends";
 
 const SERIF = Fonts!.serif;
 const SANS = Fonts!.sans;
@@ -44,6 +47,7 @@ export default function GameDetailScreen() {
   const [note, setNote] = useState("");
   const [logged, setLogged] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [headToHead, setHeadToHead] = useState<FriendLeaderboardEntry[]>([]);
 
   const loadRecent = useCallback(async () => {
     if (!gameId) return;
@@ -54,6 +58,23 @@ export default function GameDetailScreen() {
   useEffect(() => {
     loadRecent();
   }, [loadRecent]);
+
+  const loadHeadToHead = useCallback(async () => {
+    if (!gameId) return;
+    try {
+      const entries = await getFriendLeaderboard(gameId);
+      // Only worth showing when someone besides you is on the board
+      setHeadToHead(entries.some((e) => !e.is_current_user) ? entries : []);
+    } catch (err) {
+      // Offline or backend unreachable: hide the section rather than error
+      console.log("[GameDetail] Head-to-head unavailable:", err);
+      setHeadToHead([]);
+    }
+  }, [gameId]);
+
+  useEffect(() => {
+    loadHeadToHead();
+  }, [loadHeadToHead]);
 
   const history = useMemo(
     () => (game ? buildHistoryDays(game.playHistory, 70) : []),
@@ -108,6 +129,14 @@ export default function GameDetailScreen() {
         () => {}
       );
       await loadRecent();
+
+      // Push this play to the backend right away so the other player's
+      // head-to-head is fresh; the periodic sync would only catch it on the
+      // next app start. Best-effort — local storage is the source of truth.
+      syncScoresToCloud([score])
+        .then(() => syncGamesToCloud([{ ...game, ...updated }]))
+        .then(() => loadHeadToHead())
+        .catch((err) => console.log("[GameDetail] Background push failed:", err));
 
       setLogged(true);
       setTimeout(() => setLogged(false), 1800);
@@ -482,6 +511,87 @@ export default function GameDetailScreen() {
                   }}
                 >
                   {s.result}
+                </Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
+
+        {/* § Head to Head */}
+        {headToHead.length > 0 ? (
+          <View
+            style={[
+              styles.ledgerBlock,
+              { borderTopColor: palette.hairline },
+            ]}
+          >
+            <Text
+              style={[
+                styles.sectionLabel,
+                { color: palette.muted, fontFamily: SERIF, marginBottom: 14 },
+              ]}
+            >
+              § Head to Head
+            </Text>
+            {headToHead.map((entry, i) => (
+              <View
+                key={entry.user_id}
+                style={[
+                  styles.ledgerRow,
+                  {
+                    borderBottomWidth:
+                      i === headToHead.length - 1 ? 0 : StyleSheet.hairlineWidth,
+                    borderBottomColor: palette.hairline,
+                  },
+                ]}
+              >
+                <Text
+                  style={{
+                    fontFamily: SERIF,
+                    fontSize: 14,
+                    fontStyle: "italic",
+                    color: palette.muted,
+                    minWidth: 32,
+                  }}
+                >
+                  {entry.rank}.
+                </Text>
+                <Text
+                  style={{
+                    flex: 1,
+                    fontFamily: SERIF,
+                    fontSize: 18,
+                    fontWeight: entry.is_current_user ? "700" : "500",
+                    letterSpacing: -0.2,
+                    color: entry.is_current_user ? palette.tint : palette.text,
+                  }}
+                  numberOfLines={1}
+                >
+                  {entry.name}
+                </Text>
+                <Text
+                  style={{
+                    fontFamily: SERIF,
+                    fontSize: 18,
+                    fontWeight: "500",
+                    color: palette.text,
+                  }}
+                >
+                  {Number.isFinite(entry.best_score) ? String(entry.best_score) : "—"}
+                </Text>
+                <Text
+                  style={{
+                    fontSize: 10,
+                    fontWeight: "700",
+                    letterSpacing: 1.2,
+                    textTransform: "uppercase",
+                    color: palette.muted,
+                    fontFamily: SANS,
+                    minWidth: 60,
+                    textAlign: "right",
+                  }}
+                >
+                  {entry.total_plays} {entry.total_plays === 1 ? "play" : "plays"}
                 </Text>
               </View>
             ))}

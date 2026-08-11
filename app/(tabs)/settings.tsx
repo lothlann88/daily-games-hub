@@ -4,7 +4,6 @@ import {
   View,
   ScrollView,
   Pressable,
-  Switch,
   ActivityIndicator,
   Alert,
   TextInput,
@@ -19,14 +18,13 @@ import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { usePreferences, useGames, useScores } from "@/hooks/use-storage";
 import { useThemeColor } from "@/hooks/use-theme-color";
-import * as notificationLib from "@/lib/notifications";
 import * as dataTransfer from "@/lib/data-transfer";
 import { getUserProfile, updateUserProfile } from "@/lib/storage";
 import { UserProfile } from "@/types";
 import { useAuth } from "@/contexts/auth-context";
 
 export default function SettingsScreen() {
-  const { preferences, loading: prefsLoading, updatePreferences } = usePreferences();
+  const { loading: prefsLoading } = usePreferences();
   const { refresh: refreshGames } = useGames();
   const { refresh: refreshScores } = useScores();
   const { user, signOut } = useAuth();
@@ -122,69 +120,6 @@ export default function SettingsScreen() {
     await loadUserProfile();
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setIsEditingName(false);
-  };
-
-  const handleToggleReminders = async (value: boolean) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    
-    if (value) {
-      // Request permissions
-      const granted = await notificationLib.requestPermissions();
-      if (!granted) {
-        Alert.alert(
-          "Permission Required",
-          "Please enable notifications in your device settings to receive daily reminders."
-        );
-        return;
-      }
-      
-      // Schedule notification with current reminder time
-      if (preferences) {
-        const { hour, minute } = notificationLib.parseTimeString(preferences.reminderTime);
-        await notificationLib.scheduleDailyReminder(hour, minute);
-        await updatePreferences({ remindersEnabled: true });
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      }
-    } else {
-      // Cancel all reminders
-      await notificationLib.cancelAllReminders();
-      if (preferences) {
-        await updatePreferences({ remindersEnabled: false });
-      }
-    }
-  };
-
-  const handleChangeReminderTime = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    Alert.prompt(
-      "Set Reminder Time",
-      "Enter time in HH:MM format (24-hour)",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Save",
-          onPress: async (newTime?: string) => {
-            if (newTime && /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(newTime)) {
-              if (preferences) {
-                await updatePreferences({ reminderTime: newTime });
-                
-                // Reschedule if reminders are enabled
-                if (preferences.remindersEnabled) {
-                  const { hour, minute } = notificationLib.parseTimeString(newTime);
-                  await notificationLib.scheduleDailyReminder(hour, minute);
-                }
-                
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-              }
-            } else {
-              Alert.alert("Invalid Format", "Please use HH:MM format (e.g., 09:00 or 14:30)");
-            }
-          },
-        },
-      ],
-      "plain-text",
-      preferences?.reminderTime || "09:00"
-    );
   };
 
   const loading = prefsLoading || profileLoading;
@@ -319,40 +254,6 @@ export default function SettingsScreen() {
             </View>
             <ThemedText style={styles.settingRowRight}>Edit</ThemedText>
           </Pressable>
-        </View>
-
-        {/* Notifications Section */}
-        <View style={styles.section}>
-          <ThemedText type="subtitle" style={styles.sectionTitle}>
-            Notifications
-          </ThemedText>
-          <View style={[styles.settingRow, { backgroundColor: cardBackground, borderColor }]}>
-            <View style={styles.settingRowLeft}>
-              <ThemedText type="defaultSemiBold">Daily Reminders</ThemedText>
-              <ThemedText style={styles.settingDescription}>
-                Get reminded to play your daily games
-              </ThemedText>
-            </View>
-            <Switch
-              value={preferences?.remindersEnabled || false}
-              onValueChange={handleToggleReminders}
-              trackColor={{ false: "#E5E5EA", true: tintColor }}
-              thumbColor="#fff"
-            />
-          </View>
-          {preferences?.remindersEnabled && (
-            <Pressable
-              onPress={handleChangeReminderTime}
-              style={[styles.settingRow, { backgroundColor: cardBackground, borderColor }]}
-            >
-              <View style={styles.settingRowLeft}>
-                <ThemedText>Reminder Time</ThemedText>
-              </View>
-              <ThemedText style={styles.settingRowRight}>
-                {preferences.reminderTime}
-              </ThemedText>
-            </Pressable>
-          )}
         </View>
 
         {/* Data Management */}

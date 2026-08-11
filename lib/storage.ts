@@ -577,8 +577,6 @@ function getDefaultGames(): Game[] {
 
 function getDefaultPreferences(): Preferences {
   return {
-    remindersEnabled: false,
-    reminderTime: "09:00",
     favoriteGameIds: [],
   };
 }

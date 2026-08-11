@@ -50,59 +50,39 @@ export default function AddFriendScreen() {
       
       if (isUsernameSearch && searchTerm.length > 0) {
         // Exact username lookup
-        const { supabase } = await import("@/lib/supabase");
-        const { data: users, error } = await supabase
-          .from("user_profiles")
-          .select("id, name, username, avatar_url, is_private")
-          .eq("username", searchTerm.toLowerCase())
-          .limit(1);
-
-        if (error) throw error;
-
-        if (users && users.length > 0) {
-          // Get current user once to avoid multiple async calls
-          const { data: { user: currentUser } } = await supabase.auth.getUser();
-          if (!currentUser) {
-            setSearchResults([]);
-            return;
-          }
-          
-          // Check friendship status for the found user
-          const userWithStatus = await Promise.all(
-            users.map(async (user) => {
-              const isFriend = await friendsLib.checkAreFriends(user.id);
-              
-              // Check for pending requests using proper parameterized query
-              const { data: pendingRequests } = await supabase
-                .from("friend_requests")
-                .select("*")
-                .eq("status", "pending")
-                .or(`and(sender_id.eq.${user.id},receiver_id.eq.${currentUser.id}),and(sender_id.eq.${currentUser.id},receiver_id.eq.${user.id})`);
-              
-              const pendingRequest = pendingRequests?.[0];
-              const requestDirection: "sent" | "received" | undefined = pendingRequest
-                ? pendingRequest.sender_id === currentUser.id
-                  ? "sent"
-                  : "received"
-                : undefined;
-              
-              return {
-                id: user.id,
-                name: user.name,
-                username: user.username,
-                avatar_url: user.avatar_url,
-                is_private: user.is_private,
-                is_friend: isFriend,
-                has_pending_request: !!pendingRequest,
-                request_direction: requestDirection,
-              };
-            })
-          );
-          
-          setSearchResults(userWithStatus);
-        } else {
+        const { pb, currentUserId } = await import("@/lib/pocketbase");
+        const me = currentUserId();
+        if (!me) {
           setSearchResults([]);
+          return;
         }
+
+        const found = await pb.collection("users").getList(1, 1, {
+          filter: pb.filter("username = {:u} && id != {:me}", {
+            u: searchTerm.toLowerCase(),
+            me,
+          }),
+        });
+
+        const userWithStatus = await Promise.all(
+          found.items.map(async (user: any) => {
+            const isFriend = await friendsLib.checkAreFriends(user.id);
+            const requestStatus = await friendsLib.checkPendingRequest(user.id);
+
+            return {
+              id: user.id,
+              name: user.name,
+              username: user.username || undefined,
+              avatar_url: user.avatar_url || undefined,
+              is_private: user.is_private ?? false,
+              is_friend: isFriend,
+              has_pending_request: requestStatus.has_request,
+              request_direction: requestStatus.direction,
+            };
+          })
+        );
+
+        setSearchResults(userWithStatus);
       } else {
         // Regular name-based search
         const results = await friendsLib.searchUsers(searchTerm);

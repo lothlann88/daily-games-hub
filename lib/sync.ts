@@ -1,6 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { supabase } from "./supabase";
-import { Game, Score, UserProfile, Preferences, SyncError } from "@/types";
+import { pb, currentUserId } from "./pocketbase";
+import { Game, Score, UserProfile, SyncError } from "@/types";
 import { KEYS } from "@/lib/storage";
 
 const SYNC_STATUS_KEY = "@daily_games_sync_status";
@@ -43,25 +43,115 @@ async function updateSyncStatus(status: Partial<SyncStatus>) {
   }
 }
 
+function gameToRecord(userId: string, game: Game) {
+  return {
+    owner: userId,
+    client_id: game.id,
+    name: game.name,
+    url: game.url,
+    category: game.category,
+    logo_url: game.logoUrl || "",
+    icon: game.icon || "",
+    is_favorite: game.isFavorite || false,
+    current_streak: game.currentStreak || 0,
+    longest_streak: game.longestStreak || 0,
+    play_history: game.playHistory || [],
+    date_added: game.dateAdded || 0,
+    notes: game.notes || "",
+    tags: game.tags || [],
+  };
+}
+
+function recordToGame(record: any): Game {
+  const playHistory: number[] = record.play_history || [];
+  return {
+    id: record.client_id,
+    name: record.name,
+    url: record.url,
+    category: record.category,
+    logoUrl: record.logo_url || undefined,
+    icon: record.icon || "",
+    dateAdded: record.date_added || new Date(record.created).getTime(),
+    ...(playHistory.length > 0 ? { lastPlayed: Math.max(...playHistory) } : {}),
+    isFavorite: record.is_favorite,
+    currentStreak: record.current_streak,
+    longestStreak: record.longest_streak,
+    playHistory,
+    notes: record.notes || undefined,
+    tags: record.tags || [],
+  };
+}
+
+function scoreToRecord(userId: string, score: Score) {
+  return {
+    owner: userId,
+    client_id: score.id,
+    game_id: score.gameId,
+    // json field: null when the play was logged without a numeric score
+    score: score.score ?? null,
+    result: score.result,
+    date_played: score.datePlayed,
+    notes: score.notes || "",
+  };
+}
+
+function recordToScore(record: any): Score {
+  return {
+    id: record.client_id,
+    gameId: record.game_id,
+    ...(record.score != null ? { score: record.score } : {}),
+    result: record.result as "win" | "loss" | "draw",
+    datePlayed: record.date_played,
+    notes: record.notes || undefined,
+  };
+}
+
 /**
- * Sync user profile to cloud
+ * Create-or-update a set of local items against a PocketBase collection,
+ * matching on the client-generated id (client_id). PocketBase has no
+ * server-side upsert on a secondary key, so existing records are fetched once
+ * and diffed; writes go through the transactional batch API.
+ */
+async function upsertByClientId(
+  collection: "games" | "scores",
+  userId: string,
+  items: { clientId: string; body: Record<string, unknown> }[],
+): Promise<void> {
+  if (items.length === 0) return;
+
+  const existing = await pb.collection(collection).getFullList({
+    filter: pb.filter("owner = {:owner}", { owner: userId }),
+    fields: "id,client_id",
+  });
+  const existingByClientId = new Map(existing.map((r: any) => [r.client_id, r.id]));
+
+  const batch = pb.createBatch();
+  for (const item of items) {
+    const recordId = existingByClientId.get(item.clientId);
+    if (recordId) {
+      batch.collection(collection).update(recordId, item.body);
+    } else {
+      batch.collection(collection).create(item.body);
+    }
+  }
+  await batch.send();
+}
+
+/**
+ * Sync user profile to cloud (profile fields live on the users auth record)
  */
 export async function syncUserProfile(profile: UserProfile): Promise<void> {
   try {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) throw new Error("Not authenticated");
+    const userId = currentUserId();
+    if (!userId) throw new Error("Not authenticated");
 
-    const { error } = await supabase.from("user_profiles").upsert({
-      id: user.id,
+    await pb.collection("users").update(userId, {
       name: profile.name,
-      avatar_url: profile.avatarUrl || null,
+      ...(profile.username ? { username: profile.username } : {}),
+      avatar_url: profile.avatarUrl || "",
       is_private: profile.isPrivate ?? true,
-      updated_at: new Date().toISOString(),
     });
 
-    if (error) throw error;
     console.log("[Sync] User profile synced");
   } catch (error) {
     console.error("[Sync] Error syncing user profile:", error);
@@ -74,31 +164,15 @@ export async function syncUserProfile(profile: UserProfile): Promise<void> {
  */
 export async function syncGamesToCloud(games: Game[]): Promise<void> {
   try {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) throw new Error("Not authenticated");
+    const userId = currentUserId();
+    if (!userId) throw new Error("Not authenticated");
 
-    const gamesData = games.map((game) => ({
-      id: game.id,
-      user_id: user.id,
-      name: game.name,
-      url: game.url,
-      category: game.category,
-      logo_url: game.logoUrl || null,
-      icon: game.icon || null,
-      is_favorite: game.isFavorite || false,
-      current_streak: game.currentStreak || 0,
-      longest_streak: game.longestStreak || 0,
-      play_history: game.playHistory || [],
-      notes: game.notes || null,
-      tags: game.tags || [],
-      updated_at: new Date().toISOString(),
-    }));
+    await upsertByClientId(
+      "games",
+      userId,
+      games.map((game) => ({ clientId: game.id, body: gameToRecord(userId, game) })),
+    );
 
-    const { error } = await supabase.from("games").upsert(gamesData);
-
-    if (error) throw error;
     console.log(`[Sync] ${games.length} games synced to cloud`);
   } catch (error) {
     console.error("[Sync] Error syncing games to cloud:", error);
@@ -111,25 +185,15 @@ export async function syncGamesToCloud(games: Game[]): Promise<void> {
  */
 export async function syncScoresToCloud(scores: Score[]): Promise<void> {
   try {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) throw new Error("Not authenticated");
+    const userId = currentUserId();
+    if (!userId) throw new Error("Not authenticated");
 
-    const scoresData = scores.map((score) => ({
-      id: score.id,
-      user_id: user.id,
-      game_id: score.gameId,
-      score: score.score ?? null,
-      result: score.result,
-      date_played: score.datePlayed,
-      notes: score.notes || null,
-      updated_at: new Date().toISOString(),
-    }));
+    await upsertByClientId(
+      "scores",
+      userId,
+      scores.map((score) => ({ clientId: score.id, body: scoreToRecord(userId, score) })),
+    );
 
-    const { error } = await supabase.from("scores").upsert(scoresData);
-
-    if (error) throw error;
     console.log(`[Sync] ${scores.length} scores synced to cloud`);
   } catch (error) {
     console.error("[Sync] Error syncing scores to cloud:", error);
@@ -142,35 +206,15 @@ export async function syncScoresToCloud(scores: Score[]): Promise<void> {
  */
 export async function fetchGamesFromCloud(): Promise<Game[]> {
   try {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) throw new Error("Not authenticated");
+    const userId = currentUserId();
+    if (!userId) throw new Error("Not authenticated");
 
-    const { data, error } = await supabase
-      .from("games")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
+    const records = await pb.collection("games").getFullList({
+      filter: pb.filter("owner = {:owner}", { owner: userId }),
+      sort: "-created",
+    });
 
-    if (error) throw error;
-
-    const games: Game[] = (data || []).map((game) => ({
-      id: game.id,
-      name: game.name,
-      url: game.url,
-      category: game.category,
-      logoUrl: game.logo_url,
-      icon: game.icon || '',
-      dateAdded: new Date(game.created_at).getTime(),
-      isFavorite: game.is_favorite,
-      currentStreak: game.current_streak,
-      longestStreak: game.longest_streak,
-      playHistory: game.play_history || [],
-      notes: game.notes,
-      tags: game.tags || [],
-    }));
-
+    const games = records.map(recordToGame);
     console.log(`[Sync] Fetched ${games.length} games from cloud`);
     return games;
   } catch (error) {
@@ -184,28 +228,15 @@ export async function fetchGamesFromCloud(): Promise<Game[]> {
  */
 export async function fetchScoresFromCloud(): Promise<Score[]> {
   try {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) throw new Error("Not authenticated");
+    const userId = currentUserId();
+    if (!userId) throw new Error("Not authenticated");
 
-    const { data, error} = await supabase
-      .from("scores")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("date_played", { ascending: false });
+    const records = await pb.collection("scores").getFullList({
+      filter: pb.filter("owner = {:owner}", { owner: userId }),
+      sort: "-date_played",
+    });
 
-    if (error) throw error;
-
-    const scores: Score[] = (data || []).map((score) => ({
-      id: score.id,
-      gameId: score.game_id,
-      ...(score.score != null ? { score: score.score } : {}),
-      result: score.result as "win" | "loss" | "draw",
-      datePlayed: score.date_played,
-      notes: score.notes,
-    }));
-
+    const scores = records.map(recordToScore);
     console.log(`[Sync] Fetched ${scores.length} scores from cloud`);
     return scores;
   } catch (error) {
@@ -219,30 +250,17 @@ export async function fetchScoresFromCloud(): Promise<Score[]> {
  */
 export async function fetchUserProfileFromCloud(): Promise<UserProfile | null> {
   try {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) throw new Error("Not authenticated");
+    const userId = currentUserId();
+    if (!userId) throw new Error("Not authenticated");
 
-    const { data, error } = await supabase
-      .from("user_profiles")
-      .select("*")
-      .eq("id", user.id)
-      .single();
-
-    if (error) {
-      if (error.code === "PGRST116") {
-        // Profile doesn't exist yet
-        return null;
-      }
-      throw error;
-    }
+    const record = await pb.collection("users").getOne(userId);
 
     const profile: UserProfile = {
-      id: data.id,
-      name: data.name,
-      avatarUrl: data.avatar_url,
-      isPrivate: data.is_private ?? true,
+      id: record.id,
+      name: record.name,
+      username: record.username || undefined,
+      avatarUrl: record.avatar_url || undefined,
+      isPrivate: record.is_private ?? true,
     };
 
     console.log("[Sync] Fetched user profile from cloud");
@@ -341,6 +359,18 @@ export async function hasPerformedInitialSync(): Promise<boolean> {
 }
 
 /**
+ * Clear the sync status (on sign-out, so the next account's first sync
+ * doesn't inherit this one's state)
+ */
+export async function clearSyncStatus(): Promise<void> {
+  try {
+    await AsyncStorage.removeItem(SYNC_STATUS_KEY);
+  } catch (error) {
+    console.error("[Sync] Error clearing sync status:", error);
+  }
+}
+
+/**
  * Main sync function: Decides whether to do initial or full sync
  * Includes 60-second timeout to prevent hanging
  * Returns detailed error object instead of throwing
@@ -351,18 +381,15 @@ export async function syncData(): Promise<SyncResult> {
   try {
     // Add timeout to prevent infinite hanging
     const syncPromise = (async () => {
-      console.log("[Sync] Checking if initial sync has been performed...");
       const hasInitialSync = await hasPerformedInitialSync();
       console.log("[Sync] Has initial sync:", hasInitialSync);
 
       if (!hasInitialSync) {
         console.log("[Sync] Performing initial sync (upload local data)...");
         await performInitialSync();
-        console.log("[Sync] Initial sync completed");
       } else {
         console.log("[Sync] Performing full sync (download and merge)...");
         await performFullSync();
-        console.log("[Sync] Full sync completed");
       }
     })();
 
@@ -375,22 +402,18 @@ export async function syncData(): Promise<SyncResult> {
     return { success: true };
   } catch (error: any) {
     console.error("[Sync] Error syncing data:", error);
-    console.error("[Sync] Error details:", {
-      message: error?.message,
-      name: error?.name,
-      stack: error?.stack,
-    });
 
     // Determine if error is retryable based on error type
     const errorMessage = error?.message || "Unknown sync error";
+    const status = error?.status;
     const isRetryable =
+      (error?.name === "ClientResponseError" && status === 0) || // network-level failure (no response)
+      status >= 500 ||
       errorMessage.includes("network") ||
       errorMessage.includes("timeout") ||
       errorMessage.includes("fetch") ||
       errorMessage.includes("Failed to fetch") ||
-      errorMessage.includes("NetworkError") ||
-      error?.code === "ECONNREFUSED" ||
-      error?.code === "ETIMEDOUT";
+      errorMessage.includes("NetworkError");
 
     // Determine operation type based on error context
     let operation: "upload" | "download" | "profile" | "general" = "general";

@@ -1,23 +1,39 @@
-import { supabase } from "./supabase";
+import { pb, currentUserId } from "./pocketbase";
 import type {
   Friend,
-  FriendRequest,
   FriendRequestWithProfile,
   SearchResult,
   FriendScore,
   FriendLeaderboardEntry,
 } from "@/types/friends";
 
-// ============================================================================
-// VALIDATION HELPERS
-// ============================================================================
+// Screens consume the shapes in types/friends.ts (snake_case, *_profile
+// embeds), so every function here maps PocketBase records into those shapes —
+// the UI is unchanged from the Supabase era. Server invariants (both
+// friendship rows on accept, mirror-row delete) live in server/pb_hooks.
 
-/**
- * Validate UUID format
- */
-function isValidUUID(uuid: string): boolean {
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  return uuidRegex.test(uuid);
+function profileFromRecord(record: any) {
+  return {
+    id: record.id,
+    name: record.name,
+    username: record.username || undefined,
+    avatar_url: record.avatar_url || undefined,
+  };
+}
+
+function requestFromRecord(record: any): FriendRequestWithProfile {
+  const sender = record.expand?.sender;
+  const receiver = record.expand?.receiver;
+  return {
+    id: record.id,
+    sender_id: record.sender,
+    receiver_id: record.receiver,
+    status: record.status,
+    created_at: record.created,
+    updated_at: record.updated,
+    ...(sender ? { sender_profile: profileFromRecord(sender) } : {}),
+    ...(receiver ? { receiver_profile: profileFromRecord(receiver) } : {}),
+  };
 }
 
 // ============================================================================
@@ -28,18 +44,11 @@ function isValidUUID(uuid: string): boolean {
  * Send a friend request to another user
  */
 export async function sendFriendRequest(receiverId: string): Promise<void> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("Not authenticated");
-
-  // Validate receiverId to prevent injection
-  if (!isValidUUID(receiverId)) {
-    throw new Error("Invalid user ID format");
-  }
+  const userId = currentUserId();
+  if (!userId) throw new Error("Not authenticated");
 
   // Cannot send request to self
-  if (receiverId === user.id) {
+  if (receiverId === userId) {
     throw new Error("Cannot send friend request to yourself");
   }
 
@@ -49,138 +58,75 @@ export async function sendFriendRequest(receiverId: string): Promise<void> {
     throw new Error("Already friends with this user");
   }
 
-  // Check if request already exists using separate parameterized queries
-  // This is safer than using template literals in .or() clause
-  const [outgoingRequest, incomingRequest] = await Promise.all([
-    supabase
-      .from("friend_requests")
-      .select("id")
-      .eq("sender_id", user.id)
-      .eq("receiver_id", receiverId)
-      .maybeSingle(),
-    supabase
-      .from("friend_requests")
-      .select("id")
-      .eq("sender_id", receiverId)
-      .eq("receiver_id", user.id)
-      .maybeSingle()
-  ]);
-
-  const existing = outgoingRequest.data || incomingRequest.data;
-  const existingError = outgoingRequest.error || incomingRequest.error;
-  
-  // Handle case where no existing request is found (not an error)
-  if (existingError && existingError.code !== "PGRST116") {
-    throw existingError;
-  }
-
-  if (existing) {
+  // Check if a request already exists in either direction
+  const existing = await pb.collection("friend_requests").getList(1, 1, {
+    filter: pb.filter(
+      "(sender = {:me} && receiver = {:them}) || (sender = {:them} && receiver = {:me})",
+      { me: userId, them: receiverId },
+    ),
+  });
+  if (existing.totalItems > 0) {
     throw new Error("Friend request already exists");
   }
 
-  const { error } = await supabase.from("friend_requests").insert({
-    sender_id: user.id,
-    receiver_id: receiverId,
+  await pb.collection("friend_requests").create({
+    sender: userId,
+    receiver: receiverId,
     status: "pending",
   });
-
-  if (error) throw error;
 }
 
 /**
- * Accept a friend request
+ * Accept a friend request. The server hook creates both friendship rows.
  */
 export async function acceptFriendRequest(requestId: string): Promise<void> {
-  const { error } = await supabase.rpc("accept_friend_request", {
-    request_id: requestId,
-  });
-
-  if (error) throw error;
+  await pb.collection("friend_requests").update(requestId, { status: "accepted" });
 }
 
 /**
  * Reject a friend request
  */
 export async function rejectFriendRequest(requestId: string): Promise<void> {
-  const { error } = await supabase
-    .from("friend_requests")
-    .update({ status: "rejected", updated_at: new Date().toISOString() })
-    .eq("id", requestId);
-
-  if (error) throw error;
+  await pb.collection("friend_requests").update(requestId, { status: "rejected" });
 }
 
 /**
  * Cancel a sent friend request
  */
 export async function cancelFriendRequest(requestId: string): Promise<void> {
-  const { error } = await supabase.from("friend_requests").delete().eq("id", requestId);
-
-  if (error) throw error;
+  await pb.collection("friend_requests").delete(requestId);
 }
 
 /**
  * Get incoming friend requests (requests sent to current user)
  */
 export async function getIncomingFriendRequests(): Promise<FriendRequestWithProfile[]> {
-  console.log("[getIncomingFriendRequests] Starting...");
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  console.log("[getIncomingFriendRequests] User:", { hasUser: !!user, userId: user?.id });
-  if (!user) return [];
+  const userId = currentUserId();
+  if (!userId) return [];
 
-  const { data, error } = await supabase
-    .from("friend_requests")
-    .select(
-      `
-      *,
-      sender_profile:user_profiles!friend_requests_sender_id_fkey(id, name, username, avatar_url)
-    `
-    )
-    .eq("receiver_id", user.id)
-    .eq("status", "pending")
-    .order("created_at", { ascending: false });
+  const records = await pb.collection("friend_requests").getFullList({
+    filter: pb.filter("receiver = {:me} && status = 'pending'", { me: userId }),
+    sort: "-created",
+    expand: "sender",
+  });
 
-  if (error) throw error;
-
-  return (data || []).map((req) => ({
-    ...req,
-    sender_profile: Array.isArray(req.sender_profile) ? req.sender_profile[0] : req.sender_profile,
-  }));
+  return records.map(requestFromRecord);
 }
 
 /**
  * Get outgoing friend requests (requests sent by current user)
  */
 export async function getOutgoingFriendRequests(): Promise<FriendRequestWithProfile[]> {
-  console.log("[getOutgoingFriendRequests] Starting...");
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  console.log("[getOutgoingFriendRequests] User:", { hasUser: !!user, userId: user?.id });
-  if (!user) return [];
+  const userId = currentUserId();
+  if (!userId) return [];
 
-  const { data, error } = await supabase
-    .from("friend_requests")
-    .select(
-      `
-      *,
-      receiver_profile:user_profiles!friend_requests_receiver_id_fkey(id, name, username, avatar_url)
-    `
-    )
-    .eq("sender_id", user.id)
-    .eq("status", "pending")
-    .order("created_at", { ascending: false });
+  const records = await pb.collection("friend_requests").getFullList({
+    filter: pb.filter("sender = {:me} && status = 'pending'", { me: userId }),
+    sort: "-created",
+    expand: "receiver",
+  });
 
-  if (error) throw error;
-
-  return (data || []).map((req) => ({
-    ...req,
-    receiver_profile: Array.isArray(req.receiver_profile)
-      ? req.receiver_profile[0]
-      : req.receiver_profile,
-  }));
+  return records.map(requestFromRecord);
 }
 
 // ============================================================================
@@ -191,153 +137,92 @@ export async function getOutgoingFriendRequests(): Promise<FriendRequestWithProf
  * Get list of friends
  */
 export async function getFriends(): Promise<Friend[]> {
-  console.log("[getFriends] Starting...");
-  
-  try {
-    console.log("[getFriends] Calling supabase.auth.getUser()...");
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    
-    console.log("[getFriends] User:", { hasUser: !!user, userId: user?.id });
-    if (!user) {
-      console.log("[getFriends] No user, returning empty array");
-      return [];
-    }
+  const userId = currentUserId();
+  if (!userId) return [];
 
-    console.log("[getFriends] Querying friendships table...");
-    const { data, error } = await supabase
-      .from("friendships")
-      .select(
-        `
-        id,
-        created_at,
-        friend:user_profiles!friendships_friend_id_fkey(id, name, username, avatar_url, is_private)
-      `
-      )
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
+  const records = await pb.collection("friendships").getFullList({
+    filter: pb.filter("user = {:me}", { me: userId }),
+    sort: "-created",
+    expand: "friend",
+  });
 
-    console.log("[getFriends] Query result:", { hasData: !!data, hasError: !!error, dataLength: data?.length });
-    
-    if (error) {
-      console.error("[getFriends] Query error:", error);
-      throw error;
-    }
-
-    const friends = (data || []).map((friendship) => {
-      const friendProfile = Array.isArray(friendship.friend)
-        ? friendship.friend[0]
-        : friendship.friend;
+  return records
+    .filter((friendship: any) => friendship.expand?.friend)
+    .map((friendship: any) => {
+      const friendProfile = friendship.expand.friend;
       return {
         id: friendProfile.id,
         name: friendProfile.name,
-        username: friendProfile.username,
-        avatar_url: friendProfile.avatar_url,
-        is_private: friendProfile.is_private,
-        friendship_created_at: friendship.created_at,
+        username: friendProfile.username || undefined,
+        avatar_url: friendProfile.avatar_url || undefined,
+        is_private: friendProfile.is_private ?? false,
+        friendship_created_at: friendship.created,
       };
     });
-    
-    console.log("[getFriends] Returning", friends.length, "friends");
-    return friends;
-  } catch (error) {
-    console.error("[getFriends] Caught error:", error);
-    throw error;
-  }
 }
 
 /**
- * Remove a friend
+ * Remove a friend. Deleting one friendship row is enough — the server hook
+ * removes the mirror row and the resolved request.
  */
 export async function removeFriend(friendId: string): Promise<void> {
-  // Validate friendId to prevent injection
-  if (!isValidUUID(friendId)) {
-    throw new Error("Invalid user ID format");
-  }
+  const userId = currentUserId();
+  if (!userId) throw new Error("Not authenticated");
 
-  const { error } = await supabase.rpc("remove_friendship", {
-    friend_user_id: friendId,
-  });
+  const friendship = await pb
+    .collection("friendships")
+    .getFirstListItem(pb.filter("user = {:me} && friend = {:them}", { me: userId, them: friendId }));
 
-  if (error) throw error;
+  await pb.collection("friendships").delete(friendship.id);
 }
 
 /**
- * Search for users by email or name
+ * Search for users by name or username
  */
 export async function searchUsers(query: string): Promise<SearchResult[]> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return [];
+  const userId = currentUserId();
+  if (!userId) return [];
 
-  if (!query || query.trim().length < 2) return [];
+  const trimmed = query.trim();
+  if (trimmed.length < 2) return [];
 
-  // Sanitize query to prevent potential issues
-  // Remove wildcards and special characters, only allow alphanumeric, spaces, @, ., -
-  const sanitizedQuery = query
-    .trim()
-    .replace(/[%_]/g, "") // Remove SQL wildcards
-    .replace(/[^\w\s@.-]/g, ""); // Only allow safe characters
-
-  if (sanitizedQuery.length < 2) return [];
-
-  // Search by name or username using parameterized query
-  const { data: profiles, error } = await supabase
-    .from("user_profiles")
-    .select("id, name, username, avatar_url, is_private")
-    .or(`name.ilike.%${sanitizedQuery}%,username.ilike.%${sanitizedQuery}%`)
-    .neq("id", user.id)
-    .limit(20);
-
-  if (error) throw error;
-  if (!profiles) return [];
+  // pb.filter() escapes the parameters, so no manual sanitising is needed
+  const result = await pb.collection("users").getList(1, 20, {
+    filter: pb.filter("id != {:me} && (name ~ {:q} || username ~ {:q})", {
+      me: userId,
+      q: trimmed,
+    }),
+  });
 
   // Check friendship and request status for each result
-  const results = await Promise.all(
-    profiles.map(async (profile) => {
-      const isFriend = await checkAreFriends(profile.id);
-      const requestStatus = await checkPendingRequest(profile.id);
+  return Promise.all(
+    result.items.map(async (record: any) => {
+      const isFriend = await checkAreFriends(record.id);
+      const requestStatus = await checkPendingRequest(record.id);
 
       return {
-        ...profile,
+        ...profileFromRecord(record),
+        is_private: record.is_private ?? false,
         is_friend: isFriend,
         has_pending_request: requestStatus.has_request,
         request_direction: requestStatus.direction,
       };
-    })
+    }),
   );
-
-  return results;
 }
 
 /**
  * Check if users are friends
  */
 export async function checkAreFriends(friendId: string): Promise<boolean> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return false;
+  const userId = currentUserId();
+  if (!userId) return false;
 
-  // Validate friendId to prevent injection
-  if (!isValidUUID(friendId)) {
-    console.error("[Friends] Invalid friend ID format:", friendId);
-    return false;
-  }
+  const result = await pb.collection("friendships").getList(1, 1, {
+    filter: pb.filter("user = {:me} && friend = {:them}", { me: userId, them: friendId }),
+  });
 
-  const { data, error } = await supabase
-    .from("friendships")
-    .select("id")
-    .eq("user_id", user.id)
-    .eq("friend_id", friendId)
-    .maybeSingle();
-
-  // PGRST116 means no rows found, which is expected when checking friendship
-  if (error && error.code !== "PGRST116") throw error;
-
-  return !!data;
+  return result.totalItems > 0;
 }
 
 /**
@@ -346,54 +231,19 @@ export async function checkAreFriends(friendId: string): Promise<boolean> {
 export async function checkPendingRequest(
   userId: string
 ): Promise<{ has_request: boolean; direction?: "sent" | "received" }> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { has_request: false };
+  const me = currentUserId();
+  if (!me) return { has_request: false };
 
-  // Validate userId to prevent injection
-  if (!isValidUUID(userId)) {
-    console.error("[Friends] Invalid user ID format:", userId);
-    return { has_request: false };
-  }
+  const result = await pb.collection("friend_requests").getList(1, 1, {
+    filter: pb.filter(
+      "((sender = {:me} && receiver = {:them}) || (sender = {:them} && receiver = {:me})) && status = 'pending'",
+      { me, them: userId },
+    ),
+  });
 
-  // Check if current user sent request
-  const { data: sentRequest, error: sentError } = await supabase
-    .from("friend_requests")
-    .select("id")
-    .eq("sender_id", user.id)
-    .eq("receiver_id", userId)
-    .eq("status", "pending")
-    .maybeSingle();
-
-  // PGRST116 means no rows found, which is expected
-  if (sentError && sentError.code !== "PGRST116") {
-    throw sentError;
-  }
-
-  if (sentRequest) {
-    return { has_request: true, direction: "sent" };
-  }
-
-  // Check if current user received request
-  const { data: receivedRequest, error: receivedError } = await supabase
-    .from("friend_requests")
-    .select("id")
-    .eq("sender_id", userId)
-    .eq("receiver_id", user.id)
-    .eq("status", "pending")
-    .maybeSingle();
-  
-  // PGRST116 means no rows found, which is expected
-  if (receivedError && receivedError.code !== "PGRST116") {
-    throw receivedError;
-  }
-
-  if (receivedRequest) {
-    return { has_request: true, direction: "received" };
-  }
-
-  return { has_request: false };
+  const request: any = result.items[0];
+  if (!request) return { has_request: false };
+  return { has_request: true, direction: request.sender === me ? "sent" : "received" };
 }
 
 // ============================================================================
@@ -401,53 +251,48 @@ export async function checkPendingRequest(
 // ============================================================================
 
 /**
- * Get friend scores for a specific game
+ * Get friend scores for a specific game. Friends' scores are readable thanks
+ * to the friend-visibility rule on the scores collection.
  */
 export async function getFriendScoresForGame(gameId: string): Promise<FriendScore[]> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return [];
+  const userId = currentUserId();
+  if (!userId) return [];
 
   // Get all friends
   const friends = await getFriends();
   if (friends.length === 0) return [];
 
-  const friendIds = friends.map((f) => f.id);
+  // Friend-readable scores for this game (excluding our own). score is a json
+  // field, so best-per-friend is computed here rather than by server sort.
+  const scores = await pb.collection("scores").getFullList({
+    filter: pb.filter("game_id = {:game} && owner != {:me}", { game: gameId, me: userId }),
+  });
 
-  // Get scores from friends for this game
-  const { data: scores, error } = await supabase
-    .from("scores")
-    .select("user_id, score, date_played")
-    .eq("game_id", gameId)
-    .in("user_id", friendIds)
-    .order("score", { ascending: false })
-    .order("date_played", { ascending: false });
-
-  if (error) throw error;
-  if (!scores) return [];
-
-  // Get best score for each friend
-  const friendScores: FriendScore[] = [];
-  const seenFriends = new Set<string>();
-
-  for (const score of scores) {
-    if (!seenFriends.has(score.user_id)) {
-      seenFriends.add(score.user_id);
-      const friend = friends.find((f) => f.id === score.user_id);
-      if (friend) {
-        friendScores.push({
-          friend_id: friend.id,
-          friend_name: friend.name,
-          friend_avatar: friend.avatar_url,
-          score: score.score,
-          date_played: score.date_played,
-        });
-      }
+  const bestByFriend = new Map<string, any>();
+  for (const score of scores as any[]) {
+    const current = bestByFriend.get(score.owner);
+    const scoreValue = (s: any) => (s.score != null ? s.score : -Infinity);
+    if (!current || scoreValue(score) > scoreValue(current)) {
+      bestByFriend.set(score.owner, score);
     }
   }
 
-  // Add rank
+  const friendScores: FriendScore[] = [];
+  for (const [ownerId, score] of bestByFriend) {
+    const friend = friends.find((f) => f.id === ownerId);
+    if (friend) {
+      friendScores.push({
+        friend_id: friend.id,
+        friend_name: friend.name,
+        friend_avatar: friend.avatar_url,
+        score: score.score,
+        date_played: score.date_played,
+      });
+    }
+  }
+
+  // Best score first, then add rank
+  friendScores.sort((a, b) => (b.score ?? -Infinity) - (a.score ?? -Infinity));
   return friendScores.map((fs, index) => ({
     ...fs,
     rank: index + 1,
@@ -458,25 +303,16 @@ export async function getFriendScoresForGame(gameId: string): Promise<FriendScor
  * Get friend leaderboard for a game (including current user)
  */
 export async function getFriendLeaderboard(gameId: string): Promise<FriendLeaderboardEntry[]> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return [];
+  const userId = currentUserId();
+  if (!userId) return [];
 
   // Get all friends
   const friends = await getFriends();
-  const allUserIds = [user.id, ...friends.map((f) => f.id)];
 
-  // Get all scores for this game from friends and current user
-  const { data: scores, error } = await supabase
-    .from("scores")
-    .select("user_id, score, date_played")
-    .eq("game_id", gameId)
-    .in("user_id", allUserIds)
-    .order("score", { ascending: false });
-
-  if (error) throw error;
-  if (!scores) return [];
+  // All scores for this game that the rules let us read: ours + friends'
+  const scores = await pb.collection("scores").getFullList({
+    filter: pb.filter("game_id = {:game}", { game: gameId }),
+  });
 
   // Calculate stats for each user
   const userStats = new Map<
@@ -485,11 +321,11 @@ export async function getFriendLeaderboard(gameId: string): Promise<FriendLeader
   >();
 
   const noScoreSentinel = -Infinity;
-  for (const score of scores) {
+  for (const score of scores as any[]) {
     const numScore = score.score != null ? score.score : noScoreSentinel;
-    const existing = userStats.get(score.user_id);
+    const existing = userStats.get(score.owner);
     if (!existing) {
-      userStats.set(score.user_id, {
+      userStats.set(score.owner, {
         best_score: numScore,
         total_plays: 1,
         current_streak: 0, // TODO: Calculate streak
@@ -505,37 +341,22 @@ export async function getFriendLeaderboard(gameId: string): Promise<FriendLeader
   // Build leaderboard entries
   const entries: FriendLeaderboardEntry[] = [];
 
-  for (const [userId, stats] of userStats.entries()) {
-    const isCurrentUser = userId === user.id;
+  for (const [entryUserId, stats] of userStats.entries()) {
+    const isCurrentUser = entryUserId === userId;
     let name = "You";
     let avatar_url: string | undefined;
 
     if (!isCurrentUser) {
-      const friend = friends.find((f) => f.id === userId);
-      if (friend) {
-        name = friend.name;
-        avatar_url = friend.avatar_url;
-      }
+      const friend = friends.find((f) => f.id === entryUserId);
+      if (!friend) continue; // score from a since-removed friend
+      name = friend.name;
+      avatar_url = friend.avatar_url;
     } else {
-      // Get current user profile
-      const { data: profile, error: profileError } = await supabase
-        .from("user_profiles")
-        .select("name, avatar_url")
-        .eq("id", userId)
-        .maybeSingle();
-      
-      // PGRST116 means no rows found, which is acceptable
-      if (profileError && profileError.code !== "PGRST116") {
-        console.error("[getFriendLeaderboard] Error fetching user profile:", profileError);
-      }
-      
-      if (profile) {
-        avatar_url = profile.avatar_url;
-      }
+      avatar_url = pb.authStore.record?.avatar_url || undefined;
     }
 
     entries.push({
-      user_id: userId,
+      user_id: entryUserId,
       name,
       avatar_url,
       best_score: stats.best_score,
