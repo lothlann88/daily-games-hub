@@ -123,8 +123,10 @@ migrate(
           { name: 'owner', type: 'relation', collectionId: usersId, required: true, maxSelect: 1, cascadeDelete: true },
           { name: 'client_id', type: 'text', required: true, max: 120 },
           { name: 'game_id', type: 'text', required: true, max: 120 },
-          // Optional: a play can be logged without a numeric score.
-          { name: 'score', type: 'number' },
+          // Optional: a play can be logged without a numeric score. json (not
+          // number) because PB number fields coerce empty to 0, which would be
+          // indistinguishable from a real score of 0.
+          { name: 'score', type: 'json', maxSize: 100 },
           { name: 'result', type: 'select', required: true, maxSelect: 1, values: ['win', 'loss', 'draw'] },
           { name: 'date_played', type: 'number', required: true, onlyInt: true, min: 0 },
           { name: 'notes', type: 'text', max: 2000 },

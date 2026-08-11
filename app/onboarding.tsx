@@ -39,35 +39,36 @@ export default function OnboardingScreen() {
 
       // Check username availability
       try {
-        const { supabase } = await import("@/lib/supabase");
-        const { data: existing } = await supabase
-          .from("user_profiles")
-          .select("id")
-          .eq("username", usernameValue)
-          .single();
+        const { pb, currentUserId } = await import("@/lib/pocketbase");
+        const existing = await pb.collection("users").getList(1, 1, {
+          filter: pb.filter("username = {:u} && id != {:me}", {
+            u: usernameValue,
+            me: currentUserId() ?? "",
+          }),
+        });
 
-        if (existing) {
+        if (existing.totalItems > 0) {
           setUsernameError("This username is already taken");
           return;
         }
       } catch (error: any) {
-        // PGRST116 means no rows found, which is what we want
-        if (error?.code !== "PGRST116") {
-          console.error("Error checking username:", error);
-        }
+        console.error("Error checking username:", error);
       }
     }
 
     setLoading(true);
     try {
+      const { currentUserId } = await import("@/lib/pocketbase");
+      const { syncUserProfile } = await import("@/lib/sync");
       const profile: UserProfile = {
-        id: `user-${Date.now()}`,
+        id: currentUserId() ?? `user-${Date.now()}`,
         name: name.trim(),
         username: username.trim() ? username.trim().toLowerCase() : undefined,
         createdAt: Date.now(),
       };
 
       await saveProfile(profile);
+      await syncUserProfile(profile);
       await setOnboardingComplete();
       
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);

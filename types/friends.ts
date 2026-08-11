@@ -55,8 +55,8 @@ export interface FriendScore {
   friend_id: string;
   friend_name: string;
   friend_avatar?: string;
-  score: number;
-  date_played: string;
+  score?: number; // absent when the play was logged without a numeric score
+  date_played: number; // epoch ms
   rank?: number;
 }
 

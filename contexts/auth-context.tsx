@@ -1,14 +1,13 @@
 import { createContext, useContext, useEffect, useRef, useState, ReactNode } from "react";
 import { useRouter, useSegments } from "expo-router";
-import { User, Session } from "@supabase/supabase-js";
-import { supabase, isSupabaseConfigured } from "@/lib/supabase";
+import type { AuthRecord } from "pocketbase";
+import { pb } from "@/lib/pocketbase";
 import { hasCompletedOnboarding } from "@/lib/storage";
-import { syncData } from "@/lib/sync";
+import { syncData, clearSyncStatus } from "@/lib/sync";
 import { SyncStatus, SyncError } from "@/types";
 
 interface AuthContextType {
-  user: User | null;
-  session: Session | null;
+  user: AuthRecord | null;
   loading: boolean;
   syncing: boolean;
   syncStatus: SyncStatus;
@@ -20,7 +19,6 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
-  session: null,
   loading: true,
   syncing: false,
   syncStatus: "idle",
@@ -43,8 +41,12 @@ interface AuthProviderProps {
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
+  // pb.authStore.record re-parses its backing storage on every access and
+  // returns a fresh object, so it must be read once per change and cached in
+  // state — never used directly as a render-time snapshot.
+  const [user, setUser] = useState<AuthRecord | null>(() =>
+    pb.authStore.isValid ? pb.authStore.record : null,
+  );
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>("idle");
@@ -53,95 +55,90 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const router = useRouter();
   const segments = useSegments();
   const retrySyncRef = useRef<() => Promise<void>>(async () => {});
+  const timeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  // Tracked in a ref because the onChange subscription is set up once and
+  // would otherwise close over the mount-time `user` value.
+  const wasAuthenticatedRef = useRef<boolean>(pb.authStore.isValid);
+
+  const runSync = async () => {
+    setSyncing(true);
+    setSyncStatus("syncing");
+
+    const result = await syncData();
+
+    if (result.success) {
+      setLastSyncTime(Date.now());
+      setSyncStatus("success");
+      setSyncError(null);
+      console.log("[Auth] Sync completed successfully");
+    } else {
+      setSyncStatus("error");
+      setSyncError(result.error || null);
+      console.error("[Auth] Sync failed:", result.error);
+
+      // Auto-retry after 30 seconds if retryable
+      if (result.error?.retryable) {
+        console.log("[Auth] Scheduling auto-retry in 30 seconds...");
+        const tid = setTimeout(() => {
+          retrySyncRef.current?.();
+        }, 30000);
+        timeoutsRef.current.push(tid);
+      }
+    }
+
+    setSyncing(false);
+  };
 
   useEffect(() => {
-    const timeouts: ReturnType<typeof setTimeout>[] = [];
+    let cancelled = false;
+    const timeouts = timeoutsRef.current;
 
-    // Get initial session
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-
-      // Sync data for returning users
-      if (session?.user) {
-        console.log("[Auth] Returning user detected, syncing data...");
-        setSyncing(true);
-        setSyncStatus("syncing");
-
-        const result = await syncData();
-
-        if (result.success) {
-          setLastSyncTime(Date.now());
-          setSyncStatus("success");
-          setSyncError(null);
-          console.log("[Auth] Initial sync completed successfully");
-        } else {
-          setSyncStatus("error");
-          setSyncError(result.error || null);
-          console.error("[Auth] Initial sync failed:", result.error);
-
-          // Auto-retry after 30 seconds if retryable
-          if (result.error?.retryable) {
-            console.log("[Auth] Scheduling auto-retry in 30 seconds...");
-            const tid = setTimeout(() => {
-              retrySyncRef.current?.();
-            }, 30000);
-            timeouts.push(tid);
-          }
-        }
-
-        setSyncing(false);
-      }
-
-      setLoading(false);
-    });
-
-    // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      console.log("[Auth] State changed:", _event, session?.user?.id);
-      setSession(session);
-      setUser(session?.user ?? null);
+    // Listen for auth changes (login, logout, token refresh)
+    const unsubscribe = pb.authStore.onChange((_token, record) => {
+      const wasAuthenticated = wasAuthenticatedRef.current;
+      const isAuthenticated = pb.authStore.isValid && record !== null;
+      wasAuthenticatedRef.current = isAuthenticated;
+      console.log("[Auth] State changed:", { isAuthenticated, userId: record?.id });
+      setUser(isAuthenticated ? record : null);
 
       // Trigger sync when user signs in
-      if (_event === "SIGNED_IN" && session?.user) {
+      if (!wasAuthenticated && isAuthenticated) {
         console.log("[Auth] User signed in, triggering data sync...");
-        setSyncing(true);
-        setSyncStatus("syncing");
+        void runSync();
+      }
+    });
 
-        const result = await syncData();
-
-        if (result.success) {
-          setLastSyncTime(Date.now());
-          setSyncStatus("success");
-          setSyncError(null);
-          console.log("[Auth] Data sync completed successfully");
-        } else {
-          setSyncStatus("error");
-          setSyncError(result.error || null);
-          console.error("[Auth] Data sync failed:", result.error);
-
-          // Auto-retry after 30 seconds if retryable
-          if (result.error?.retryable) {
-            console.log("[Auth] Scheduling auto-retry in 30 seconds...");
-            const tid = setTimeout(() => {
-              retrySyncRef.current?.();
-            }, 30000);
-            timeouts.push(tid);
+    // Validate any persisted session, then sync for returning users
+    (async () => {
+      if (pb.authStore.isValid) {
+        try {
+          await pb.collection("users").authRefresh();
+        } catch (error: any) {
+          // 401/403/404 mean the token or account is no longer valid; network
+          // failures keep the session for offline use of local data.
+          if (error?.status === 401 || error?.status === 403 || error?.status === 404) {
+            console.log("[Auth] Stored session invalid, clearing");
+            pb.authStore.clear();
+          } else {
+            console.warn("[Auth] Could not validate session (offline?):", error?.message);
           }
         }
 
-        setSyncing(false);
+        if (!cancelled && pb.authStore.isValid) {
+          console.log("[Auth] Returning user detected, syncing data...");
+          setUser(pb.authStore.record);
+          await runSync();
+        }
       }
-
-      setLoading(false);
-    });
+      if (!cancelled) setLoading(false);
+    })();
 
     return () => {
-      subscription.unsubscribe();
+      cancelled = true;
+      unsubscribe();
       timeouts.forEach(clearTimeout);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Handle navigation based on auth state
@@ -156,8 +153,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
       "add-game",
       "add-friend",
       "modal",
-      "oauth",
-      "auth-test",
     ]);
     const isAllowedSegment = segments[0] ? allowedSegments.has(segments[0]) : true;
 
@@ -190,73 +185,27 @@ export function AuthProvider({ children }: AuthProviderProps) {
       console.log("[Auth] Cannot retry sync - no user");
       return;
     }
-
     console.log("[Auth] Retrying sync...");
-    setSyncing(true);
-    setSyncStatus("syncing");
     setSyncError(null);
-
-    const result = await syncData();
-
-    if (result.success) {
-      setLastSyncTime(Date.now());
-      setSyncStatus("success");
-      setSyncError(null);
-      console.log("[Auth] Sync retry successful");
-    } else {
-      setSyncStatus("error");
-      setSyncError(result.error || null);
-      console.error("[Auth] Sync retry failed:", result.error);
-    }
-
-    setSyncing(false);
+    await runSync();
   };
 
   retrySyncRef.current = retrySync;
 
   const signOut = async () => {
-    try {
-      console.log("[Auth] Sign out initiated");
-
-      if (!isSupabaseConfigured()) {
-        console.warn("[Auth] Supabase not configured, skipping remote sign out");
-      } else {
-        console.log("[Auth] Calling supabase.auth.signOut()...");
-        try {
-          const { error } = await supabase.auth.signOut();
-          if (error) {
-            console.error("[Auth] Sign out error:", error);
-            // Don't throw - continue with local cleanup
-          }
-        } catch (error: any) {
-          console.error("[Auth] Supabase sign out threw exception:", error);
-          // Continue with local cleanup even if Supabase fails
-        }
-      }
-
-      console.log("[Auth] Sign out successful");
-    } catch (error: any) {
-      console.error("[Auth] Sign out failed:", error);
-      console.error("[Auth] Error details:", {
-        message: error?.message,
-        name: error?.name,
-        stack: error?.stack,
-      });
-    } finally {
-      // Even if sign out fails, clear local state and redirect
-      console.log("[Auth] Clearing local state and redirecting to login...");
-      setUser(null);
-      setSession(null);
-      setSyncing(false);
-      setSyncStatus("idle");
-      setSyncError(null);
-      setLastSyncTime(null);
-      router.replace("/auth/login" as any);
-    }
+    console.log("[Auth] Sign out initiated");
+    pb.authStore.clear();
+    await clearSyncStatus();
+    setUser(null);
+    setSyncing(false);
+    setSyncStatus("idle");
+    setSyncError(null);
+    setLastSyncTime(null);
+    router.replace("/auth/login" as any);
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, syncing, syncStatus, syncError, lastSyncTime, signOut, retrySync }}>
+    <AuthContext.Provider value={{ user, loading, syncing, syncStatus, syncError, lastSyncTime, signOut, retrySync }}>
       {children}
     </AuthContext.Provider>
   );
