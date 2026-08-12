@@ -25,15 +25,27 @@ export async function getGames(): Promise<Game[]> {
       (g) => newDefaultIds.includes(g.id) && !storedIds.has(g.id)
     );
     if (toAdd.length > 0) {
-      const merged: Game[] = [
-        ...storedGames,
-        ...toAdd.map((g) => ({ ...g, dateAdded: Date.now() })),
-      ];
+      const stamped = toAdd.map((g) => ({ ...g, dateAdded: Date.now() }));
+      const merged: Game[] = [...storedGames, ...stamped];
       await saveGames(merged);
-      await AsyncStorage.setItem(
-        KEYS.DEFAULT_GAME_IDS_OFFERED,
-        JSON.stringify(currentDefaultIds)
-      );
+      // New defaults must also reach the cloud copy: the periodic full sync
+      // is download-and-replace, so a default that only exists locally would
+      // be silently dropped on the next app start. Mark them offered only
+      // once that push succeeds (or when signed out, where local storage is
+      // the only copy), so a failed push retries on a later launch.
+      try {
+        const { currentUserId } = await import("./pocketbase");
+        if (currentUserId()) {
+          const { syncGamesToCloud } = await import("./sync");
+          await syncGamesToCloud(stamped);
+        }
+        await AsyncStorage.setItem(
+          KEYS.DEFAULT_GAME_IDS_OFFERED,
+          JSON.stringify(currentDefaultIds)
+        );
+      } catch (error) {
+        console.log("New default games not pushed to cloud yet, will retry:", error);
+      }
       return merged;
     }
     if (storedGames.length === 0) {
@@ -557,6 +569,20 @@ function getDefaultGames(): Game[] {
       isFavorite: false,
       tags: [],
       notes: "",
+    },
+    {
+      id: "clues-by-sam",
+      name: "Clues by Sam",
+      url: "https://cluesbysam.com",
+      category: "Puzzles",
+      icon: "🕵️",
+      dateAdded: Date.now(),
+      currentStreak: 0,
+      longestStreak: 0,
+      playHistory: [],
+      isFavorite: false,
+      tags: ["Logic"],
+      notes: "Daily deduction puzzle: tap suspects to reveal clues and work out who's criminal and who's innocent — no guessing, puzzles get harder through the week.",
     },
     {
       id: "gamedle-character",

@@ -10,6 +10,13 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: "1.1.1",
+    date: "2026-08-12",
+    entries: [
+      "Clues by Sam joins the library — a daily deduction puzzle where you tap suspects to reveal clues and work out who's guilty. It appears in everyone's library automatically.",
+    ],
+  },
+  {
     version: "1.1.0",
     date: "2026-08-12",
     entries: [
