@@ -66,6 +66,17 @@ invariants and gotchas that are not obvious from the code.
 - `public/sw.js`: bump `CACHE_NAME` when changing cached assets; keep `/api/`
   and `/_/` network-first.
 
+## Versioning & changelog (mandatory)
+
+Every user-visible change adds an entry to `lib/changelog.ts` (newest release
+first) AND bumps `version` in **both** `package.json` and `app.config.ts` —
+patch for fixes, minor for features. `APP_VERSION` derives from the newest
+changelog entry and drives the What's new pop-up (shown once per update,
+tracked via the `lastSeenVersion` AsyncStorage key); Settings → About shows
+the version and the full update log. Entries are user-facing prose (UK
+English), not commit messages. The tests in `lib/__tests__/changelog.test.ts`
+enforce ordering and format.
+
 ## Deployment
 
 - `pnpm build && tools/deploy/deploy.sh root@<unraid-tailscale-ip>`. Deploys

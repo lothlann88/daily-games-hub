@@ -16,6 +16,7 @@ import Constants from "expo-constants";
 
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
+import { CHANGELOG } from "@/lib/changelog";
 import { usePreferences, useGames, useScores } from "@/hooks/use-storage";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import * as dataTransfer from "@/lib/data-transfer";
@@ -342,6 +343,31 @@ export default function SettingsScreen() {
             </ThemedText>
           </View>
         </View>
+
+        {/* Update log */}
+        <View style={styles.section}>
+          <ThemedText type="subtitle" style={styles.sectionTitle}>
+            What&apos;s New
+          </ThemedText>
+          <View style={[styles.infoCard, { backgroundColor: cardBackground }]}>
+            {CHANGELOG.map((release, i) => (
+              <View
+                key={release.version}
+                style={i === CHANGELOG.length - 1 ? undefined : styles.releaseBlock}
+              >
+                <ThemedText type="defaultSemiBold" style={styles.releaseHeading}>
+                  v{release.version} ·{" "}
+                  {new Date(release.date).toLocaleDateString("en-GB")}
+                </ThemedText>
+                {release.entries.map((entry) => (
+                  <ThemedText key={entry} style={[styles.infoText, styles.releaseEntry]}>
+                    {"•"} {entry}
+                  </ThemedText>
+                ))}
+              </View>
+            ))}
+          </View>
+        </View>
       </ScrollView>
     </ThemedView>
   );
@@ -454,5 +480,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     opacity: 0.8,
+  },
+  releaseBlock: {
+    marginBottom: 16,
+  },
+  releaseHeading: {
+    marginBottom: 4,
+  },
+  releaseEntry: {
+    marginBottom: 2,
   },
 });

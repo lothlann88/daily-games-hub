@@ -19,6 +19,7 @@ import { ThemedView } from "@/components/themed-view";
 import { Colors, Fonts, streakColor, type Palette } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { useGames } from "@/hooks/use-storage";
+import { filterAndSortLibrary, libraryCategories } from "@/lib/library";
 import { fetchGameLogo } from "@/lib/logo-fetcher";
 import { wasPlayedToday } from "@/lib/streaks";
 import type { Game } from "@/types";
@@ -67,6 +68,7 @@ export default function HomeScreen() {
 
   const [refreshing, setRefreshing] = useState(false);
   const [query, setQuery] = useState("");
+  const [category, setCategory] = useState<string | null>(null);
 
   // Best-effort logo backfill (kept from original implementation).
   const gamesMissingLogos = useMemo(
@@ -108,15 +110,12 @@ export default function HomeScreen() {
     [enriched]
   );
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return enriched
-      .filter((g) => !q || g.name.toLowerCase().includes(q))
-      .sort((a, b) => {
-        if (a.playedToday !== b.playedToday) return a.playedToday ? 1 : -1;
-        return b.currentStreak - a.currentStreak;
-      });
-  }, [enriched, query]);
+  const categories = useMemo(() => libraryCategories(games), [games]);
+
+  const filtered = useMemo(
+    () => filterAndSortLibrary(enriched, { query, category }),
+    [enriched, query, category]
+  );
 
   const handleOpenGame = useCallback(
     (gameId: string) => {
@@ -166,6 +165,9 @@ export default function HomeScreen() {
             filteredCount={filtered.length}
             query={query}
             onQueryChange={setQuery}
+            categories={categories}
+            category={category}
+            onCategoryChange={setCategory}
             onOpenGame={handleOpenGame}
             palette={palette}
             scheme={scheme}
@@ -174,11 +176,11 @@ export default function HomeScreen() {
         ListEmptyComponent={
           <View style={styles.emptyWrap}>
             <Text style={[styles.emptyTitle, { color: palette.text }]}>
-              {query ? "No matches" : "No games yet"}
+              {query || category ? "No matches" : "No games yet"}
             </Text>
             <Text style={[styles.emptyBody, { color: palette.muted }]}>
-              {query
-                ? "Try a different name."
+              {query || category
+                ? "Try a different name or category."
                 : "Add a game from the + button to start a streak."}
             </Text>
           </View>
@@ -211,6 +213,9 @@ type HeaderProps = {
   filteredCount: number;
   query: string;
   onQueryChange: (v: string) => void;
+  categories: string[];
+  category: string | null;
+  onCategoryChange: (v: string | null) => void;
   onOpenGame: (id: string) => void;
   palette: Palette;
   scheme: "light" | "dark";
@@ -223,6 +228,9 @@ function Header({
   filteredCount,
   query,
   onQueryChange,
+  categories,
+  category,
+  onCategoryChange,
   onOpenGame,
   palette,
   scheme,
@@ -314,6 +322,43 @@ function Header({
           />
         </View>
       </View>
+
+      {/* Category filter chips */}
+      {categories.length > 1 ? (
+        <View style={styles.chipRow}>
+          {[null, ...categories].map((c) => {
+            const selected = category === c;
+            return (
+              <Pressable
+                key={c ?? "all"}
+                onPress={() => onCategoryChange(selected ? null : c)}
+                hitSlop={4}
+                style={({ pressed }) => [
+                  styles.chip,
+                  {
+                    borderColor: palette.hairline,
+                    backgroundColor: selected ? palette.ink : "transparent",
+                    opacity: pressed ? 0.7 : 1,
+                  },
+                ]}
+              >
+                <Text
+                  style={{
+                    fontSize: 11,
+                    letterSpacing: 0.6,
+                    textTransform: "uppercase",
+                    fontFamily: SANS,
+                    color: selected ? palette.bg : palette.muted,
+                  }}
+                  allowFontScaling={false}
+                >
+                  {c ?? "All"}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      ) : null}
 
       {/* § Library section rule */}
       <View style={styles.sectionRule}>
@@ -535,6 +580,11 @@ function GameRow({ game, palette, isLast, onPress }: GameRowProps) {
             },
           ]}
         >
+          {game.isFavorite ? (
+            <Text style={{ color: palette.tint }} allowFontScaling={false}>
+              {"★ "}
+            </Text>
+          ) : null}
           {game.name}
         </Text>
         <Text
@@ -711,6 +761,19 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 10,
     borderBottomWidth: 1,
+  },
+  chipRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    paddingHorizontal: 24,
+    paddingTop: 16,
+  },
+  chip: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
   },
   sectionRule: {
     paddingTop: 28,

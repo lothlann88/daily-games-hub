@@ -3,6 +3,7 @@ import React, { useEffect, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 
 import { EditorialTabBar } from "@/components/editorial-tab-bar";
+import { WhatsNew } from "@/components/whats-new";
 import { Colors } from "@/constants/theme";
 import { useAuth } from "@/contexts/auth-context";
 import { useColorScheme } from "@/hooks/use-color-scheme";
@@ -50,14 +51,17 @@ export default function TabLayout() {
   }
 
   return (
-    <Tabs
-      screenOptions={{ headerShown: false }}
-      tabBar={(props) => <EditorialTabBar {...props} />}
-    >
-      <Tabs.Screen name="index" options={{ title: "Games" }} />
-      <Tabs.Screen name="leaderboard" options={{ title: "Stats" }} />
-      <Tabs.Screen name="friends" options={{ title: "Friends" }} />
-      <Tabs.Screen name="settings" options={{ title: "You" }} />
-    </Tabs>
+    <>
+      <Tabs
+        screenOptions={{ headerShown: false }}
+        tabBar={(props) => <EditorialTabBar {...props} />}
+      >
+        <Tabs.Screen name="index" options={{ title: "Games" }} />
+        <Tabs.Screen name="leaderboard" options={{ title: "Stats" }} />
+        <Tabs.Screen name="friends" options={{ title: "Friends" }} />
+        <Tabs.Screen name="settings" options={{ title: "You" }} />
+      </Tabs>
+      <WhatsNew />
+    </>
   );
 }

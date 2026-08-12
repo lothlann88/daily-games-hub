@@ -99,6 +99,18 @@ export default function GameDetailScreen() {
     }
   };
 
+  const handleToggleFavorite = async () => {
+    if (!game) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    const isFavorite = !game.isFavorite;
+    await updateGame(game.id, { isFavorite });
+    // Best-effort push so the other device picks the change up promptly;
+    // local storage remains the source of truth.
+    syncGamesToCloud([{ ...game, isFavorite }]).catch((err) =>
+      console.log("[GameDetail] Favourite push failed:", err)
+    );
+  };
+
   const handleSubmit = async () => {
     if (!game || submitting) return;
     setSubmitting(true);
@@ -210,7 +222,25 @@ export default function GameDetailScreen() {
           >
             {game.category}
           </Text>
-          <View style={{ width: 36 }} />
+          <Pressable
+            onPress={handleToggleFavorite}
+            hitSlop={10}
+            style={({ pressed }) => ({
+              width: 36,
+              alignItems: "flex-end" as const,
+              opacity: pressed ? 0.6 : 1,
+            })}
+          >
+            <Text
+              style={{
+                fontSize: 18,
+                color: game.isFavorite ? palette.tint : palette.muted,
+              }}
+              allowFontScaling={false}
+            >
+              {game.isFavorite ? "★" : "☆"}
+            </Text>
+          </Pressable>
         </View>
 
         {/* Hero masthead */}
