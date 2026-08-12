@@ -10,6 +10,13 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: "1.2.0",
+    date: "2026-08-12",
+    entries: [
+      "New Logic & Deduction category: Clues by Sam, Murdle, Sudoku, Nerdle and LinkedIn Queens have moved there — existing libraries update themselves — and it's available in the category chips and when adding a game.",
+    ],
+  },
+  {
     version: "1.1.1",
     date: "2026-08-12",
     entries: [

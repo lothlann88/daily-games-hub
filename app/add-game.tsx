@@ -19,9 +19,8 @@ import { getGameIcon } from "@/components/ui/game-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useGames } from "@/hooks/use-storage";
 import { useThemeColor } from "@/hooks/use-theme-color";
+import { CATEGORIES } from "@/lib/categories";
 import { Game, GameCategory } from "@/types";
-
-const CATEGORIES: GameCategory[] = ["Word Games", "Puzzles", "Strategy", "Trivia", "Other"];
 const EMOJI_OPTIONS = ["🎮", "🎯", "🎲", "🧩", "🔤", "📰", "👑", "📍", "🔗", "🐝", "🔢", "🎪", "🎨", "🎭", "🎬"];
 
 export default function AddGameScreen() {

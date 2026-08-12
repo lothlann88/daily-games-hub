@@ -1,9 +1,11 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { applyCategoryRemap, CATEGORY_REMAP_VERSION } from "@/lib/categories";
 import { Game, UserProfile, Score, Preferences } from "@/types";
 
 export const KEYS = {
   GAMES: "games",
   DEFAULT_GAME_IDS_OFFERED: "defaultGameIdsOffered",
+  CATEGORY_REMAP_APPLIED: "categoryRemapApplied",
   USER_PROFILE: "userProfile",
   SCORES: "scores",
   PREFERENCES: "preferences",
@@ -14,7 +16,31 @@ export const KEYS = {
 export async function getGames(): Promise<Game[]> {
   try {
     const data = await AsyncStorage.getItem(KEYS.GAMES);
-    const storedGames: Game[] = data ? JSON.parse(data) : [];
+    let storedGames: Game[] = data ? JSON.parse(data) : [];
+    // One-off category remap for libraries created before a category existed.
+    // Like the new-defaults push below, the change must reach the cloud copy
+    // before being marked done, or the next full sync (download-and-replace)
+    // would revert it; a failed push retries on a later launch.
+    if (storedGames.length > 0) {
+      const remapApplied = await AsyncStorage.getItem(KEYS.CATEGORY_REMAP_APPLIED);
+      if (remapApplied !== CATEGORY_REMAP_VERSION) {
+        const { games: remapped, changed } = applyCategoryRemap(storedGames);
+        if (changed.length > 0) {
+          storedGames = remapped;
+          await saveGames(remapped);
+        }
+        try {
+          const { currentUserId } = await import("./pocketbase");
+          if (changed.length > 0 && currentUserId()) {
+            const { syncGamesToCloud } = await import("./sync");
+            await syncGamesToCloud(changed);
+          }
+          await AsyncStorage.setItem(KEYS.CATEGORY_REMAP_APPLIED, CATEGORY_REMAP_VERSION);
+        } catch (error) {
+          console.log("Category remap not pushed to cloud yet, will retry:", error);
+        }
+      }
+    }
     const defaultGames = getDefaultGames();
     const offeredData = await AsyncStorage.getItem(KEYS.DEFAULT_GAME_IDS_OFFERED);
     const offeredIds: string[] = offeredData ? JSON.parse(offeredData) : [];
@@ -252,7 +278,7 @@ function getDefaultGames(): Game[] {
       id: "linkedin-queens",
       name: "LinkedIn Queens",
       url: "https://www.linkedin.com/games/queens/",
-      category: "Strategy",
+      category: "Logic & Deduction",
       icon: "👑",
       dateAdded: Date.now(),
       currentStreak: 0,
@@ -308,7 +334,7 @@ function getDefaultGames(): Game[] {
       id: "sudoku",
       name: "Sudoku",
       url: "https://www.nytimes.com/puzzles/sudoku/easy",
-      category: "Puzzles",
+      category: "Logic & Deduction",
       icon: "🔢",
       dateAdded: Date.now(),
       currentStreak: 0,
@@ -448,7 +474,7 @@ function getDefaultGames(): Game[] {
       id: "nerdle",
       name: "Nerdle",
       url: "https://nerdlegame.com",
-      category: "Puzzles",
+      category: "Logic & Deduction",
       icon: "🔢",
       dateAdded: Date.now(),
       currentStreak: 0,
@@ -504,7 +530,7 @@ function getDefaultGames(): Game[] {
       id: "murdle",
       name: "Murdle",
       url: "https://murdle.com",
-      category: "Puzzles",
+      category: "Logic & Deduction",
       icon: "🔍",
       dateAdded: Date.now(),
       currentStreak: 0,
@@ -574,7 +600,7 @@ function getDefaultGames(): Game[] {
       id: "clues-by-sam",
       name: "Clues by Sam",
       url: "https://cluesbysam.com",
-      category: "Puzzles",
+      category: "Logic & Deduction",
       icon: "🕵️",
       dateAdded: Date.now(),
       currentStreak: 0,

@@ -38,7 +38,13 @@ export interface Preferences {
   favoriteGameIds: string[];
 }
 
-export type GameCategory = "Word Games" | "Puzzles" | "Strategy" | "Trivia" | "Other";
+export type GameCategory =
+  | "Word Games"
+  | "Puzzles"
+  | "Logic & Deduction"
+  | "Strategy"
+  | "Trivia"
+  | "Other";
 
 export type GameTag = "Quick" | "Challenging" | "Relaxing" | "Logic" | "Visual" | "Audio" | "Math" | "Geography" | "Music" | "Movies";
 
