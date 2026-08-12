@@ -10,6 +10,13 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: "1.2.1",
+    date: "2026-08-12",
+    entries: [
+      "The games list now refreshes itself when you come back to it, so a play you've just logged shows up straight away instead of after a pull-to-refresh.",
+    ],
+  },
+  {
     version: "1.2.0",
     date: "2026-08-12",
     entries: [

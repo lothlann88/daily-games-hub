@@ -6,8 +6,10 @@ export function useGames() {
   const [games, setGames] = useState<Game[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Deliberately no setLoading(true) here: refresh runs on every screen
+  // focus, and flipping loading would flash the full-screen spinner and
+  // reset list scroll. `loading` only covers the initial load.
   const loadGames = useCallback(async () => {
-    setLoading(true);
     const data = await storage.getGames();
     setGames(data);
     setLoading(false);
@@ -67,8 +69,8 @@ export function useScores() {
   const [scores, setScores] = useState<Score[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Same as loadGames: `loading` only covers the initial load.
   const loadScores = useCallback(async () => {
-    setLoading(true);
     const data = await storage.getScores();
     setScores(data);
     setLoading(false);

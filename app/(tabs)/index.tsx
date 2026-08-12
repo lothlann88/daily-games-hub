@@ -10,6 +10,7 @@ import {
   View,
 } from "react-native";
 import { useRouter } from "expo-router";
+import { useFocusEffect } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 
@@ -69,6 +70,15 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<string | null>(null);
+
+  // Reload from storage whenever the screen regains focus — plays logged in
+  // the game-detail modal land in AsyncStorage via a different useGames
+  // instance, so this one's copy is stale by the time we navigate back.
+  useFocusEffect(
+    useCallback(() => {
+      refresh();
+    }, [refresh])
+  );
 
   // Best-effort logo backfill (kept from original implementation).
   const gamesMissingLogos = useMemo(
