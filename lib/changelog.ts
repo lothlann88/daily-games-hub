@@ -10,6 +10,15 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: "1.4.0",
+    date: "2026-08-13",
+    entries: [
+      "Duolingo joins the library under a new Language category.",
+      "Syncing between devices now merges instead of overwriting: plays logged on both phones the same day both count towards the streak, and games you add or rename on one device no longer vanish after the next sync.",
+      "Sort the library your way — tap the title count on the § Library line to switch between smart, streak, A–Z and recently played. Favourites stay pinned on top.",
+    ],
+  },
+  {
     version: "1.3.0",
     date: "2026-08-13",
     entries: [
