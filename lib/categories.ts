@@ -7,6 +7,7 @@ export const CATEGORIES: GameCategory[] = [
   "Logic & Deduction",
   "Strategy",
   "Trivia",
+  "Language",
   "Other",
 ];
 

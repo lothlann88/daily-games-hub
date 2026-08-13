@@ -45,6 +45,7 @@ export type GameCategory =
   | "Logic & Deduction"
   | "Strategy"
   | "Trivia"
+  | "Language"
   | "Other";
 
 export type GameTag = "Quick" | "Challenging" | "Relaxing" | "Logic" | "Visual" | "Audio" | "Math" | "Geography" | "Music" | "Movies";
