@@ -23,12 +23,20 @@ import * as dataTransfer from "@/lib/data-transfer";
 import { getUserProfile, updateUserProfile } from "@/lib/storage";
 import { UserProfile } from "@/types";
 import { useAuth } from "@/contexts/auth-context";
+import { useThemePreference, type ThemePreference } from "@/contexts/theme-context";
+
+const THEME_OPTIONS: { value: ThemePreference; label: string }[] = [
+  { value: "system", label: "System" },
+  { value: "light", label: "Light" },
+  { value: "dark", label: "Dark" },
+];
 
 export default function SettingsScreen() {
   const { loading: prefsLoading } = usePreferences();
   const { refresh: refreshGames } = useGames();
   const { refresh: refreshScores } = useScores();
   const { user, signOut } = useAuth();
+  const { preference, setPreference } = useThemePreference();
   const insets = useSafeAreaInsets();
   const tintColor = useThemeColor({}, "tint");
   const cardBackground = useThemeColor({}, "card");
@@ -257,6 +265,41 @@ export default function SettingsScreen() {
           </Pressable>
         </View>
 
+        {/* Appearance */}
+        <View style={styles.section}>
+          <ThemedText type="subtitle" style={styles.sectionTitle}>
+            Appearance
+          </ThemedText>
+          <View style={[styles.settingRow, { backgroundColor: cardBackground, borderColor }]}>
+            <View style={styles.segmentRow}>
+              {THEME_OPTIONS.map(({ value, label }) => {
+                const selected = preference === value;
+                return (
+                  <Pressable
+                    key={value}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setPreference(value);
+                    }}
+                    style={[
+                      styles.segment,
+                      { borderColor },
+                      selected && { backgroundColor: tintColor, borderColor: tintColor },
+                    ]}
+                  >
+                    <ThemedText style={selected ? styles.segmentLabelSelected : undefined}>
+                      {label}
+                    </ThemedText>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+          <ThemedText style={styles.settingDescription}>
+            System follows your device&apos;s light/dark setting.
+          </ThemedText>
+        </View>
+
         {/* Data Management */}
         <View style={styles.section}>
           <ThemedText type="subtitle" style={styles.sectionTitle}>
@@ -480,6 +523,22 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     opacity: 0.8,
+  },
+  segmentRow: {
+    flexDirection: "row",
+    gap: 8,
+    flex: 1,
+  },
+  segment: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  segmentLabelSelected: {
+    color: "#fff",
+    fontWeight: "600",
   },
   releaseBlock: {
     marginBottom: 16,

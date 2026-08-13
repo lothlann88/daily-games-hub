@@ -16,6 +16,7 @@ import type { EdgeInsets, Rect } from "react-native-safe-area-context";
 
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { AuthProvider } from "@/contexts/auth-context";
+import { ThemePreferenceProvider } from "@/contexts/theme-context";
 
 const DEFAULT_WEB_INSETS: EdgeInsets = { top: 0, right: 0, bottom: 0, left: 0 };
 const DEFAULT_WEB_FRAME: Rect = { x: 0, y: 0, width: 0, height: 0 };
@@ -25,7 +26,17 @@ export const unstable_settings = {
   anchor: "(tabs)",
 };
 
+// The appearance preference must wrap everything that calls useColorScheme,
+// including this layout's own ThemeProvider lookup — hence the split.
 export default function RootLayout() {
+  return (
+    <ThemePreferenceProvider>
+      <RootLayoutInner />
+    </ThemePreferenceProvider>
+  );
+}
+
+function RootLayoutInner() {
   const colorScheme = useColorScheme();
   const insets = initialWindowMetrics?.insets ?? DEFAULT_WEB_INSETS;
   const frame = initialWindowMetrics?.frame ?? DEFAULT_WEB_FRAME;

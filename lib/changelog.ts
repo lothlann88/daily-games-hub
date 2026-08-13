@@ -10,6 +10,13 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: "1.3.0",
+    date: "2026-08-13",
+    entries: [
+      "Choose your look: Settings → Appearance now offers System, Light and Dark. The app still follows your device unless you pick one.",
+    ],
+  },
+  {
     version: "1.2.1",
     date: "2026-08-12",
     entries: [
