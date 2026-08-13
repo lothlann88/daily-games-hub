@@ -12,20 +12,51 @@ export function libraryCategories(games: Game[]): string[] {
   return [...seen].sort((a, b) => a.localeCompare(b));
 }
 
+export type LibrarySortMode = "smart" | "streak" | "alpha" | "lastPlayed";
+
+export const SORT_MODE_CYCLE: LibrarySortMode[] = ["smart", "streak", "alpha", "lastPlayed"];
+
+export const SORT_MODE_LABELS: Record<LibrarySortMode, string> = {
+  smart: "smart",
+  streak: "streak",
+  alpha: "A–Z",
+  lastPlayed: "recent",
+};
+
 export interface LibraryFilter {
   query: string;
   category: string | null; // null = all categories
+  sort?: LibrarySortMode; // defaults to "smart"
 }
 
+type SortableGame = Game & { playedToday: boolean };
+
+const COMPARATORS: Record<LibrarySortMode, (a: SortableGame, b: SortableGame) => number> = {
+  // Games still to play today first, longest current streak first.
+  smart: (a, b) => {
+    if (a.playedToday !== b.playedToday) return a.playedToday ? 1 : -1;
+    return b.currentStreak - a.currentStreak;
+  },
+  streak: (a, b) =>
+    b.currentStreak - a.currentStreak ||
+    b.longestStreak - a.longestStreak ||
+    a.name.localeCompare(b.name),
+  alpha: (a, b) => a.name.localeCompare(b.name),
+  // Most recently played first; never-played sink to the bottom.
+  lastPlayed: (a, b) =>
+    (b.lastPlayed ?? 0) - (a.lastPlayed ?? 0) || a.name.localeCompare(b.name),
+};
+
 /**
- * Library ordering: favourites pinned first; within each group, games not yet
- * played today come before played ones, longest current streak first.
+ * Library ordering: favourites pinned first in every mode, then the chosen
+ * sort mode's comparator.
  */
 export function filterAndSortLibrary<T extends Game & { playedToday: boolean }>(
   games: T[],
-  { query, category }: LibraryFilter
+  { query, category, sort = "smart" }: LibraryFilter
 ): T[] {
   const q = query.trim().toLowerCase();
+  const compare = COMPARATORS[sort];
   return games
     .filter(
       (g) =>
@@ -34,7 +65,6 @@ export function filterAndSortLibrary<T extends Game & { playedToday: boolean }>(
     )
     .sort((a, b) => {
       if (a.isFavorite !== b.isFavorite) return a.isFavorite ? -1 : 1;
-      if (a.playedToday !== b.playedToday) return a.playedToday ? 1 : -1;
-      return b.currentStreak - a.currentStreak;
+      return compare(a, b);
     });
 }

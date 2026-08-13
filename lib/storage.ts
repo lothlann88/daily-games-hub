@@ -629,5 +629,6 @@ function getDefaultGames(): Game[] {
 function getDefaultPreferences(): Preferences {
   return {
     favoriteGameIds: [],
+    librarySortMode: "smart",
   };
 }

@@ -69,6 +69,51 @@ describe("filterAndSortLibrary", () => {
     expect(result.map((g) => g.id)).toEqual(["fav", "unplayed"]);
   });
 
+  it("sorts by streak in streak mode, tiebreaking on longest then name", () => {
+    const games = [
+      makeGame({ id: "b-tie", name: "B", currentStreak: 3, longestStreak: 5 }),
+      makeGame({ id: "low", name: "Low", currentStreak: 1 }),
+      makeGame({ id: "a-tie", name: "A", currentStreak: 3, longestStreak: 5 }),
+      makeGame({ id: "long", name: "Long", currentStreak: 3, longestStreak: 9 }),
+    ];
+    const result = filterAndSortLibrary(games, { query: "", category: null, sort: "streak" });
+    expect(result.map((g) => g.id)).toEqual(["long", "a-tie", "b-tie", "low"]);
+  });
+
+  it("sorts alphabetically in alpha mode regardless of play state", () => {
+    const games = [
+      makeGame({ id: "z", name: "Zip", currentStreak: 9 }),
+      makeGame({ id: "a", name: "Arrow", playedToday: true }),
+    ];
+    const result = filterAndSortLibrary(games, { query: "", category: null, sort: "alpha" });
+    expect(result.map((g) => g.id)).toEqual(["a", "z"]);
+  });
+
+  it("sorts most recent first in lastPlayed mode, never-played last", () => {
+    const games = [
+      makeGame({ id: "never", name: "Never" }),
+      makeGame({ id: "old", name: "Old", lastPlayed: 100 }),
+      makeGame({ id: "fresh", name: "Fresh", lastPlayed: 900 }),
+    ];
+    const result = filterAndSortLibrary(games, {
+      query: "",
+      category: null,
+      sort: "lastPlayed",
+    });
+    expect(result.map((g) => g.id)).toEqual(["fresh", "old", "never"]);
+  });
+
+  it("pins favourites first in every mode", () => {
+    const games = [
+      makeGame({ id: "z-fav", name: "Zz", isFavorite: true }),
+      makeGame({ id: "a", name: "Aa", currentStreak: 9, lastPlayed: 900 }),
+    ];
+    for (const sort of ["smart", "streak", "alpha", "lastPlayed"] as const) {
+      const result = filterAndSortLibrary(games, { query: "", category: null, sort });
+      expect(result[0].id, sort).toBe("z-fav");
+    }
+  });
+
   it("orders each group: unplayed before played, then streak descending", () => {
     const games = [
       makeGame({ id: "played-long", playedToday: true, currentStreak: 20 }),

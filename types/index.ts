@@ -37,6 +37,7 @@ export interface Score {
 
 export interface Preferences {
   favoriteGameIds: string[];
+  librarySortMode?: import("@/lib/library").LibrarySortMode;
 }
 
 export type GameCategory =

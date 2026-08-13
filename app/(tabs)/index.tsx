@@ -19,8 +19,14 @@ import { StreakGrid, buildHistoryDays } from "@/components/streak-grid";
 import { ThemedView } from "@/components/themed-view";
 import { Colors, Fonts, streakColor, type Palette } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
-import { useGames } from "@/hooks/use-storage";
-import { filterAndSortLibrary, libraryCategories } from "@/lib/library";
+import { useGames, usePreferences } from "@/hooks/use-storage";
+import {
+  filterAndSortLibrary,
+  libraryCategories,
+  SORT_MODE_CYCLE,
+  SORT_MODE_LABELS,
+  type LibrarySortMode,
+} from "@/lib/library";
 import { fetchGameLogo } from "@/lib/logo-fetcher";
 import { wasPlayedToday } from "@/lib/streaks";
 import type { Game } from "@/types";
@@ -62,6 +68,7 @@ function SearchIcon({ color, size = 16 }: SearchIconProps) {
 
 export default function HomeScreen() {
   const { games, loading, refresh, updateGame } = useGames();
+  const { preferences, updatePreferences } = usePreferences();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const scheme = useColorScheme() ?? "light";
@@ -122,10 +129,19 @@ export default function HomeScreen() {
 
   const categories = useMemo(() => libraryCategories(games), [games]);
 
+  const sort: LibrarySortMode = preferences?.librarySortMode ?? "smart";
+
   const filtered = useMemo(
-    () => filterAndSortLibrary(enriched, { query, category }),
-    [enriched, query, category]
+    () => filterAndSortLibrary(enriched, { query, category, sort }),
+    [enriched, query, category, sort]
   );
+
+  const handleCycleSort = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    const next =
+      SORT_MODE_CYCLE[(SORT_MODE_CYCLE.indexOf(sort) + 1) % SORT_MODE_CYCLE.length];
+    updatePreferences({ librarySortMode: next });
+  }, [sort, updatePreferences]);
 
   const handleOpenGame = useCallback(
     (gameId: string) => {
@@ -178,6 +194,8 @@ export default function HomeScreen() {
             categories={categories}
             category={category}
             onCategoryChange={setCategory}
+            sort={sort}
+            onCycleSort={handleCycleSort}
             onOpenGame={handleOpenGame}
             palette={palette}
             scheme={scheme}
@@ -226,6 +244,8 @@ type HeaderProps = {
   categories: string[];
   category: string | null;
   onCategoryChange: (v: string | null) => void;
+  sort: LibrarySortMode;
+  onCycleSort: () => void;
   onOpenGame: (id: string) => void;
   palette: Palette;
   scheme: "light" | "dark";
@@ -241,6 +261,8 @@ function Header({
   categories,
   category,
   onCategoryChange,
+  sort,
+  onCycleSort,
   onOpenGame,
   palette,
   scheme,
@@ -388,16 +410,25 @@ function Header({
             marginHorizontal: 12,
           }}
         />
-        <Text
-          style={{
-            fontSize: 11,
-            color: palette.muted,
-            letterSpacing: 0.3,
-            fontFamily: SANS,
-          }}
+        <Pressable
+          onPress={onCycleSort}
+          hitSlop={8}
+          style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
         >
-          {filteredCount} {filteredCount === 1 ? "title" : "titles"}
-        </Text>
+          <Text
+            style={{
+              fontSize: 11,
+              color: palette.muted,
+              letterSpacing: 0.3,
+              fontFamily: SANS,
+            }}
+          >
+            {filteredCount} {filteredCount === 1 ? "title" : "titles"} ·{" "}
+            <Text style={{ color: palette.text, fontWeight: "500" }}>
+              {SORT_MODE_LABELS[sort]}
+            </Text>
+          </Text>
+        </Pressable>
       </View>
     </View>
   );
