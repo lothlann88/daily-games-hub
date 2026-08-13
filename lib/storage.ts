@@ -18,27 +18,20 @@ export async function getGames(): Promise<Game[]> {
     const data = await AsyncStorage.getItem(KEYS.GAMES);
     let storedGames: Game[] = data ? JSON.parse(data) : [];
     // One-off category remap for libraries created before a category existed.
-    // Like the new-defaults push below, the change must reach the cloud copy
-    // before being marked done, or the next full sync (download-and-replace)
-    // would revert it; a failed push retries on a later launch.
+    // Stamping updatedAt makes the change local-newer, so the next merge sync
+    // (lib/merge.ts) uploads it — no eager push needed here.
     if (storedGames.length > 0) {
       const remapApplied = await AsyncStorage.getItem(KEYS.CATEGORY_REMAP_APPLIED);
       if (remapApplied !== CATEGORY_REMAP_VERSION) {
         const { games: remapped, changed } = applyCategoryRemap(storedGames);
         if (changed.length > 0) {
-          storedGames = remapped;
-          await saveGames(remapped);
+          const stampedIds = new Set(changed.map((g) => g.id));
+          storedGames = remapped.map((g) =>
+            stampedIds.has(g.id) ? { ...g, updatedAt: Date.now() } : g
+          );
+          await saveGames(storedGames);
         }
-        try {
-          const { currentUserId } = await import("./pocketbase");
-          if (changed.length > 0 && currentUserId()) {
-            const { syncGamesToCloud } = await import("./sync");
-            await syncGamesToCloud(changed);
-          }
-          await AsyncStorage.setItem(KEYS.CATEGORY_REMAP_APPLIED, CATEGORY_REMAP_VERSION);
-        } catch (error) {
-          console.log("Category remap not pushed to cloud yet, will retry:", error);
-        }
+        await AsyncStorage.setItem(KEYS.CATEGORY_REMAP_APPLIED, CATEGORY_REMAP_VERSION);
       }
     }
     const defaultGames = getDefaultGames();
@@ -51,27 +44,19 @@ export async function getGames(): Promise<Game[]> {
       (g) => newDefaultIds.includes(g.id) && !storedIds.has(g.id)
     );
     if (toAdd.length > 0) {
-      const stamped = toAdd.map((g) => ({ ...g, dateAdded: Date.now() }));
+      // Stamping dateAdded/updatedAt makes new defaults local-only-or-newer,
+      // so the next merge sync uploads them — no eager push needed.
+      const stamped = toAdd.map((g) => ({
+        ...g,
+        dateAdded: Date.now(),
+        updatedAt: Date.now(),
+      }));
       const merged: Game[] = [...storedGames, ...stamped];
       await saveGames(merged);
-      // New defaults must also reach the cloud copy: the periodic full sync
-      // is download-and-replace, so a default that only exists locally would
-      // be silently dropped on the next app start. Mark them offered only
-      // once that push succeeds (or when signed out, where local storage is
-      // the only copy), so a failed push retries on a later launch.
-      try {
-        const { currentUserId } = await import("./pocketbase");
-        if (currentUserId()) {
-          const { syncGamesToCloud } = await import("./sync");
-          await syncGamesToCloud(stamped);
-        }
-        await AsyncStorage.setItem(
-          KEYS.DEFAULT_GAME_IDS_OFFERED,
-          JSON.stringify(currentDefaultIds)
-        );
-      } catch (error) {
-        console.log("New default games not pushed to cloud yet, will retry:", error);
-      }
+      await AsyncStorage.setItem(
+        KEYS.DEFAULT_GAME_IDS_OFFERED,
+        JSON.stringify(currentDefaultIds)
+      );
       return merged;
     }
     if (storedGames.length === 0) {
@@ -105,7 +90,7 @@ export async function saveGames(games: Game[]): Promise<void> {
 
 export async function addGame(game: Game): Promise<void> {
   const games = await getGames();
-  games.push(game);
+  games.push({ ...game, updatedAt: Date.now() });
   await saveGames(games);
 }
 
@@ -113,7 +98,7 @@ export async function updateGame(gameId: string, updates: Partial<Game>): Promis
   const games = await getGames();
   const index = games.findIndex((g) => g.id === gameId);
   if (index !== -1) {
-    games[index] = { ...games[index], ...updates };
+    games[index] = { ...games[index], ...updates, updatedAt: Date.now() };
     await saveGames(games);
   }
 }

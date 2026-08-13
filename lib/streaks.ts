@@ -4,7 +4,7 @@ import { Game } from "@/types";
  * Calculate the current streak for a game based on its play history
  * A streak is consecutive days the game was played
  */
-export function calculateCurrentStreak(playHistory: number[]): number {
+export function calculateCurrentStreak(playHistory: number[], now: number = Date.now()): number {
   if (playHistory.length === 0) return 0;
 
   // Sort play history in descending order (most recent first)
@@ -16,7 +16,7 @@ export function calculateCurrentStreak(playHistory: number[]): number {
   if (uniqueDays.length === 0) return 0;
 
   // Check if the most recent play was today or yesterday
-  const today = getStartOfDay(Date.now());
+  const today = getStartOfDay(now);
   const mostRecentDay = uniqueDays[0];
   const daysSinceLastPlay = Math.floor((today - mostRecentDay) / (24 * 60 * 60 * 1000));
 

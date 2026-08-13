@@ -106,7 +106,7 @@ export default function GameDetailScreen() {
     await updateGame(game.id, { isFavorite });
     // Best-effort push so the other device picks the change up promptly;
     // local storage remains the source of truth.
-    syncGamesToCloud([{ ...game, isFavorite }]).catch((err) =>
+    syncGamesToCloud([{ ...game, isFavorite, updatedAt: Date.now() }]).catch((err) =>
       console.log("[GameDetail] Favourite push failed:", err)
     );
   };
@@ -146,7 +146,7 @@ export default function GameDetailScreen() {
       // head-to-head is fresh; the periodic sync would only catch it on the
       // next app start. Best-effort — local storage is the source of truth.
       syncScoresToCloud([score])
-        .then(() => syncGamesToCloud([{ ...game, ...updated }]))
+        .then(() => syncGamesToCloud([{ ...game, ...updated, updatedAt: Date.now() }]))
         .then(() => loadHeadToHead())
         .catch((err) => console.log("[GameDetail] Background push failed:", err));
 

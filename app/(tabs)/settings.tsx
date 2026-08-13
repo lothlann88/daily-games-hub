@@ -21,6 +21,7 @@ import { usePreferences, useGames, useScores } from "@/hooks/use-storage";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import * as dataTransfer from "@/lib/data-transfer";
 import { getUserProfile, updateUserProfile } from "@/lib/storage";
+import { syncUserProfile } from "@/lib/sync";
 import { UserProfile } from "@/types";
 import { useAuth } from "@/contexts/auth-context";
 import { useThemePreference, type ThemePreference } from "@/contexts/theme-context";
@@ -35,7 +36,7 @@ export default function SettingsScreen() {
   const { loading: prefsLoading } = usePreferences();
   const { refresh: refreshGames } = useGames();
   const { refresh: refreshScores } = useScores();
-  const { user, signOut } = useAuth();
+  const { user, signOut, retrySync } = useAuth();
   const { preference, setPreference } = useThemePreference();
   const insets = useSafeAreaInsets();
   const tintColor = useThemeColor({}, "tint");
@@ -86,6 +87,9 @@ export default function SettingsScreen() {
               await refreshGames();
               await refreshScores();
               await loadUserProfile();
+              // Push imported records to the cloud straight away; merge sync
+              // would otherwise only pick them up on the next app start.
+              retrySync().catch(() => {});
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
               Alert.alert("Success", "Data imported successfully!");
             } catch (error) {
@@ -101,6 +105,7 @@ export default function SettingsScreen() {
               await refreshGames();
               await refreshScores();
               await loadUserProfile();
+              retrySync().catch(() => {});
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
               Alert.alert("Success", "Data merged successfully!");
             } catch (error) {
@@ -127,6 +132,14 @@ export default function SettingsScreen() {
 
     await updateUserProfile({ name: trimmedName });
     await loadUserProfile();
+    // Best-effort push — profile download is cloud-wins, so a rename that
+    // never reaches the cloud would be reverted on the next sync.
+    const updated = await getUserProfile();
+    if (updated) {
+      syncUserProfile(updated).catch((err) =>
+        console.log("[Settings] Profile push failed:", err)
+      );
+    }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setIsEditingName(false);
   };

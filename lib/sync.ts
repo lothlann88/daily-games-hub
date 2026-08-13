@@ -1,6 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { pb, currentUserId } from "./pocketbase";
 import { Game, Score, UserProfile, SyncError } from "@/types";
+import { mergeLibraries } from "@/lib/merge";
 import { KEYS, setOnboardingComplete } from "@/lib/storage";
 
 const SYNC_STATUS_KEY = "@daily_games_sync_status";
@@ -59,6 +60,7 @@ function gameToRecord(userId: string, game: Game) {
     date_added: game.dateAdded || 0,
     notes: game.notes || "",
     tags: game.tags || [],
+    updated_at: game.updatedAt || 0,
   };
 }
 
@@ -79,6 +81,10 @@ function recordToGame(record: any): Game {
     playHistory,
     notes: record.notes || undefined,
     tags: record.tags || [],
+    // Records predating the updated_at migration fall back to the server
+    // autodate — slightly generous (it bumps on every push) but self-healing
+    // after the record's first stamped write.
+    updatedAt: record.updated_at || new Date(record.updated).getTime(),
   };
 }
 
@@ -312,30 +318,50 @@ export async function performInitialSync(): Promise<void> {
 }
 
 /**
- * Full sync: Download cloud data and merge with local
+ * Full sync: two-way per-record merge between local and cloud (lib/merge.ts).
+ * Local-only and locally-newer records are pushed up instead of being
+ * replaced; play-derived fields are recomputed from the union of scores so
+ * plays logged on two devices both count. Merged state is written locally
+ * FIRST — if the push-back fails, local is already correct and every
+ * un-pushed record is still local-newer/local-only, so the next sync
+ * naturally retries.
  */
 export async function performFullSync(): Promise<void> {
   try {
-    console.log("[Sync] Starting full sync...");
+    console.log("[Sync] Starting merge sync...");
 
-    // Fetch from cloud
+    // Read local raw (not via getGames(), whose default-merge side effects
+    // shouldn't run mid-sync).
+    const [gamesData, scoresData] = await Promise.all([
+      AsyncStorage.getItem(KEYS.GAMES),
+      AsyncStorage.getItem(KEYS.SCORES),
+    ]);
+    const localGames: Game[] = gamesData ? JSON.parse(gamesData) : [];
+    const localScores: Score[] = scoresData ? JSON.parse(scoresData) : [];
+
     const [cloudGames, cloudScores, cloudProfile] = await Promise.all([
       fetchGamesFromCloud(),
       fetchScoresFromCloud(),
       fetchUserProfileFromCloud(),
     ]);
 
-    // Save to local storage
-    // Always save arrays (even if empty) to ensure sync consistency
-    // Only skip saving if the fetch operation failed (null/undefined)
-    if (cloudGames !== null && cloudGames !== undefined) {
-      await AsyncStorage.setItem(KEYS.GAMES, JSON.stringify(cloudGames));
-    }
-    if (cloudScores !== null && cloudScores !== undefined) {
-      await AsyncStorage.setItem(KEYS.SCORES, JSON.stringify(cloudScores));
-    }
+    const merged = mergeLibraries(
+      { games: localGames, scores: localScores },
+      { games: cloudGames, scores: cloudScores },
+    );
+
+    await AsyncStorage.setItem(KEYS.GAMES, JSON.stringify(merged.games));
+    await AsyncStorage.setItem(KEYS.SCORES, JSON.stringify(merged.scores));
+    // Profile stays cloud-wins on download; renames push at write time.
     if (cloudProfile) {
       await AsyncStorage.setItem(KEYS.USER_PROFILE, JSON.stringify(cloudProfile));
+    }
+
+    if (merged.scoresToPush.length > 0) {
+      await syncScoresToCloud(merged.scoresToPush);
+    }
+    if (merged.gamesToPush.length > 0) {
+      await syncGamesToCloud(merged.gamesToPush);
     }
 
     // Update sync status
@@ -343,7 +369,9 @@ export async function performFullSync(): Promise<void> {
       lastSyncTimestamp: Date.now(),
     });
 
-    console.log("[Sync] Full sync complete");
+    console.log(
+      `[Sync] Merge sync complete (pushed ${merged.gamesToPush.length} games, ${merged.scoresToPush.length} scores)`,
+    );
   } catch (error) {
     console.error("[Sync] Error during full sync:", error);
     throw error;
@@ -370,12 +398,28 @@ export async function clearSyncStatus(): Promise<void> {
   }
 }
 
+// Re-entrancy guard: login transition, app-start path, the 30s retry and the
+// post-import sync can overlap; concurrent merge syncs would race each other's
+// AsyncStorage writes. Callers share the in-flight run instead.
+let inFlightSync: Promise<SyncResult> | null = null;
+
 /**
  * Main sync function: Decides whether to do initial or full sync
  * Includes 60-second timeout to prevent hanging
  * Returns detailed error object instead of throwing
  */
-export async function syncData(): Promise<SyncResult> {
+export function syncData(): Promise<SyncResult> {
+  if (inFlightSync) {
+    console.log("[Sync] Sync already in flight, joining it");
+    return inFlightSync;
+  }
+  inFlightSync = doSyncData().finally(() => {
+    inFlightSync = null;
+  });
+  return inFlightSync;
+}
+
+async function doSyncData(): Promise<SyncResult> {
   console.log("[Sync] Starting sync process...");
 
   try {

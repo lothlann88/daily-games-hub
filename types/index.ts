@@ -13,6 +13,7 @@ export interface Game {
   isFavorite: boolean;
   tags: string[]; // Tags like "Quick", "Challenging", "Logic", etc.
   notes?: string; // Personal notes about the game (strategies, tips, best scores)
+  updatedAt?: number; // Last metadata write (epoch ms) — LWW clock for sync merge
 }
 
 export interface UserProfile {
