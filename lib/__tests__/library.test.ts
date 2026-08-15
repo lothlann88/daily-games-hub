@@ -32,6 +32,13 @@ describe("libraryCategories", () => {
     ];
     expect(libraryCategories(games)).toEqual(["Puzzles", "Trivia"]);
   });
+
+  it("includes extra category memberships", () => {
+    const games = [
+      makeGame({ id: "a", category: "Video Games", categories: ["Video Games", "Trivia"] }),
+    ];
+    expect(libraryCategories(games)).toEqual(["Trivia", "Video Games"]);
+  });
 });
 
 describe("filterAndSortLibrary", () => {
@@ -42,6 +49,19 @@ describe("filterAndSortLibrary", () => {
     ];
     const result = filterAndSortLibrary(games, { query: "WORD", category: null });
     expect(result.map((g) => g.id)).toEqual(["wordle"]);
+  });
+
+  it("matches a chip through any category membership, not just the primary", () => {
+    const games = [
+      makeGame({ id: "gamedle", category: "Video Games", categories: ["Video Games", "Trivia"] }),
+      makeGame({ id: "wordle", category: "Word Games" }),
+    ];
+    expect(
+      filterAndSortLibrary(games, { query: "", category: "Trivia" }).map((g) => g.id)
+    ).toEqual(["gamedle"]);
+    expect(
+      filterAndSortLibrary(games, { query: "", category: "Video Games" }).map((g) => g.id)
+    ).toEqual(["gamedle"]);
   });
 
   it("filters by category and combines it with the query", () => {

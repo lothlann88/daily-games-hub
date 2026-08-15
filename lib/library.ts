@@ -3,13 +3,22 @@ import type { Game } from "@/types";
 // Pure helpers behind the home-screen library list, extracted so the
 // ordering and filtering rules are unit-testable.
 
-/** Distinct categories across the library, alphabetical. */
+/** Distinct categories across the library (primary + extra memberships), alphabetical. */
 export function libraryCategories(games: Game[]): string[] {
   const seen = new Set<string>();
   for (const game of games) {
     if (game.category) seen.add(game.category);
+    for (const c of game.categories ?? []) {
+      if (c) seen.add(c);
+    }
   }
   return [...seen].sort((a, b) => a.localeCompare(b));
+}
+
+/** A game matches a chip via its primary category or any extra membership. */
+export function inCategory(game: Game, category: string | null): boolean {
+  if (!category) return true;
+  return game.category === category || (game.categories ?? []).includes(category);
 }
 
 export type LibrarySortMode = "smart" | "streak" | "alpha" | "lastPlayed";
@@ -58,11 +67,7 @@ export function filterAndSortLibrary<T extends Game & { playedToday: boolean }>(
   const q = query.trim().toLowerCase();
   const compare = COMPARATORS[sort];
   return games
-    .filter(
-      (g) =>
-        (!q || g.name.toLowerCase().includes(q)) &&
-        (!category || g.category === category)
-    )
+    .filter((g) => (!q || g.name.toLowerCase().includes(q)) && inCategory(g, category))
     .sort((a, b) => {
       if (a.isFavorite !== b.isFavorite) return a.isFavorite ? -1 : 1;
       return compare(a, b);

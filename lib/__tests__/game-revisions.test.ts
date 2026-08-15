@@ -34,6 +34,19 @@ describe("GAME_REVISIONS", () => {
     }
   });
 
+  it("restructures the Gamedle family onto its real mode URLs", () => {
+    expect(GAME_REVISIONS.gamedle).toMatchObject({
+      name: "Gamedle Guess",
+      url: "https://gamedle.wtf/guess",
+      category: "Video Games",
+    });
+    expect(GAME_REVISIONS["gamedle-classic"]).toMatchObject({ name: "Gamedle Cover Art" });
+    expect(GAME_REVISIONS["gamedle-character"]).toMatchObject({
+      url: "https://gamedle.wtf/characters",
+    });
+    expect(GAME_REVISIONS["gamedle-artwork"].categories).toEqual(["Video Games", "Trivia"]);
+  });
+
   it("points heardle at Heardle Unlimited", () => {
     expect(GAME_REVISIONS.heardle).toMatchObject({
       name: "Heardle Unlimited",
@@ -57,12 +70,13 @@ describe("applyGameRevisions", () => {
     expect(changed.map((g) => g.id)).toEqual(["heardle"]);
   });
 
-  it("is idempotent: a fully-revised library reports no changes", () => {
-    const games = [makeGame("heardle")];
+  it("is idempotent, including for array-valued patches", () => {
+    const games = [makeGame("heardle"), makeGame("gamedle")];
     const once = applyGameRevisions(games);
     const twice = applyGameRevisions(once.games);
     expect(twice.changed).toEqual([]);
     expect(twice.games[0]).toBe(once.games[0]);
+    expect(twice.games[1]).toBe(once.games[1]);
   });
 
   it("applies the v1 category moves for devices that never ran them", () => {

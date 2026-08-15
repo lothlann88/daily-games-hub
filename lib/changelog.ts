@@ -10,6 +10,15 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: "1.7.0",
+    date: "2026-08-15",
+    entries: [
+      "New Movies and Video Games categories, and games can now belong to more than one category — the chips match any of them, and you can pick several when adding a game.",
+      "The Gamedle family now mirrors the site's real modes: Gamedle Guess, Cover Art, Artwork, Character (URL fixed) and the new Gamedle Keywords — your play histories carry over.",
+      "Movie Grid (moviegrid.io) joins the library: guess the film matching every clue, nine guesses a day.",
+    ],
+  },
+  {
     version: "1.6.0",
     date: "2026-08-15",
     entries: [

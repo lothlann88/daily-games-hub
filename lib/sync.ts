@@ -62,6 +62,7 @@ function gameToRecord(userId: string, game: Game) {
     tags: game.tags || [],
     updated_at: game.updatedAt || 0,
     score_order: game.scoreOrder || "",
+    categories: game.categories || [],
   };
 }
 
@@ -87,6 +88,9 @@ function recordToGame(record: any): Game {
     // after the record's first stamped write.
     updatedAt: record.updated_at || new Date(record.updated).getTime(),
     ...(record.score_order ? { scoreOrder: record.score_order } : {}),
+    ...(Array.isArray(record.categories) && record.categories.length > 0
+      ? { categories: record.categories }
+      : {}),
   };
 }
 

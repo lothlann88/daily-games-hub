@@ -2,7 +2,8 @@ export interface Game {
   id: string;
   name: string;
   url: string;
-  category: string;
+  category: string; // primary category (shown on rows and the detail page)
+  categories?: string[]; // full membership incl. primary — chips match any
   icon: string;
   dateAdded: number;
   lastPlayed?: number;
@@ -53,6 +54,8 @@ export type GameCategory =
   | "Logic & Deduction"
   | "Strategy"
   | "Trivia"
+  | "Movies"
+  | "Video Games"
   | "Language"
   | "Other";
 

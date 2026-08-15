@@ -6,7 +6,7 @@ import type { Game, GameCategory, ScoreOrder } from "@/types";
 // entries change so already-migrated devices re-run; patches must stay
 // idempotent. This generalises the old category remap: fresh installs get
 // the same values straight from getDefaultGames().
-export const GAME_REVISIONS_VERSION = "2";
+export const GAME_REVISIONS_VERSION = "3";
 
 // Score direction seeds for the default library. Also merged into
 // getDefaultGames() so new installs agree with retrofitted ones.
@@ -37,8 +37,10 @@ export const SCORE_ORDER_SEEDS: Record<string, ScoreOrder> = {
   "gamedle-artwork": "lower",
   "gamedle-classic": "lower",
   "gamedle-character": "lower",
+  "gamedle-keywords": "lower",
   "clues-by-sam": "lower", // solve time
   duolingo: "higher", // XP
+  "movie-grid": "lower", // guesses used
 };
 
 // v1 category moves (kept so a device that never ran v1 still gets them).
@@ -59,6 +61,26 @@ function buildRevisions(): Record<string, Partial<Game>> {
   for (const [id, scoreOrder] of Object.entries(SCORE_ORDER_SEEDS)) patch(id, { scoreOrder });
   // v2: the original Heardle shut down; point at Heardle Unlimited.
   patch("heardle", { name: "Heardle Unlimited", url: "https://www.heardle.info" });
+  // v3: Gamedle's real mode structure — the base game is the /guess mode,
+  // "classic" is the cover-art mode, and the characters path was wrong.
+  // Renaming in place (same client ids) keeps play histories attached.
+  const gamedleCategories: Partial<Game> = {
+    category: "Video Games",
+    categories: ["Video Games", "Trivia"],
+  };
+  patch("gamedle", {
+    name: "Gamedle Guess",
+    url: "https://gamedle.wtf/guess",
+    ...gamedleCategories,
+  });
+  patch("gamedle-classic", { name: "Gamedle Cover Art", ...gamedleCategories });
+  patch("gamedle-artwork", gamedleCategories);
+  patch("gamedle-character", {
+    url: "https://gamedle.wtf/characters",
+    ...gamedleCategories,
+  });
+  // v3: film games join the new Movies category.
+  patch("framed", { category: "Movies", categories: ["Movies", "Trivia"] });
   return revisions;
 }
 
@@ -73,9 +95,15 @@ export function applyGameRevisions(games: Game[]): {
   const next = games.map((game) => {
     const patch = GAME_REVISIONS[game.id];
     if (!patch) return game;
-    const differs = (Object.keys(patch) as (keyof Game)[]).some(
-      (key) => game[key] !== patch[key]
-    );
+    const differs = (Object.keys(patch) as (keyof Game)[]).some((key) => {
+      const current = game[key];
+      const target = patch[key];
+      // Array-valued patches (categories) compare by content, not reference.
+      if (Array.isArray(current) || Array.isArray(target)) {
+        return JSON.stringify(current) !== JSON.stringify(target);
+      }
+      return current !== target;
+    });
     if (!differs) return game;
     const updated = { ...game, ...patch };
     changed.push(updated);

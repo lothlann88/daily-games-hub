@@ -33,8 +33,22 @@ export default function AddGameScreen() {
   const { addGame } = useGames();
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
-  const [category, setCategory] = useState<GameCategory>("Word Games");
+  // Multi-select; the first selected is the primary category shown on rows.
+  const [selectedCategories, setSelectedCategories] = useState<GameCategory[]>([
+    "Word Games",
+  ]);
   const [scoreOrder, setScoreOrder] = useState<ScoreOrder>("higher");
+
+  const toggleCategory = (cat: GameCategory) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setSelectedCategories((current) => {
+      if (current.includes(cat)) {
+        // Keep at least one category selected.
+        return current.length > 1 ? current.filter((c) => c !== cat) : current;
+      }
+      return [...current, cat];
+    });
+  };
   const [icon, setIcon] = useState("🎮");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -74,7 +88,8 @@ export default function AddGameScreen() {
         id: `game-${Date.now()}`,
         name: name.trim(),
         url: url.trim(),
-        category,
+        category: selectedCategories[0],
+        categories: selectedCategories,
         scoreOrder,
         icon,
         dateAdded: Date.now(),
@@ -161,35 +176,39 @@ export default function AddGameScreen() {
           </View>
 
           <View style={styles.formGroup}>
-            <ThemedText style={styles.label}>Category</ThemedText>
+            <ThemedText style={styles.label}>Categories</ThemedText>
             <View style={styles.categoryGrid}>
-              {CATEGORIES.map((cat) => (
-                <Pressable
-                  key={cat}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setCategory(cat);
-                  }}
-                  style={[
-                    styles.categoryButton,
-                    { borderColor },
-                    category === cat && {
-                      backgroundColor: tintColor,
-                      borderColor: tintColor,
-                    },
-                  ]}
-                >
-                  <ThemedText
+              {CATEGORIES.map((cat) => {
+                const selected = selectedCategories.includes(cat);
+                return (
+                  <Pressable
+                    key={cat}
+                    onPress={() => toggleCategory(cat)}
                     style={[
-                      styles.categoryButtonText,
-                      category === cat && { color: "#fff" },
+                      styles.categoryButton,
+                      { borderColor },
+                      selected && {
+                        backgroundColor: tintColor,
+                        borderColor: tintColor,
+                      },
                     ]}
                   >
-                    {cat}
-                  </ThemedText>
-                </Pressable>
-              ))}
+                    <ThemedText
+                      style={[
+                        styles.categoryButtonText,
+                        selected && { color: "#fff" },
+                      ]}
+                    >
+                      {cat}
+                    </ThemedText>
+                  </Pressable>
+                );
+              })}
             </View>
+            <ThemedText style={styles.helperText}>
+              Pick as many as fit — the first stays the main one shown on the
+              games list.
+            </ThemedText>
           </View>
 
           <View style={styles.formGroup}>
@@ -273,7 +292,9 @@ export default function AddGameScreen() {
               <ThemedText type="defaultSemiBold" style={styles.previewName}>
                 {name || "Game Name"}
               </ThemedText>
-              <ThemedText style={styles.previewCategory}>{category}</ThemedText>
+              <ThemedText style={styles.previewCategory}>
+                {selectedCategories.join(" · ")}
+              </ThemedText>
             </View>
           </View>
         </View>
