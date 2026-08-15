@@ -1,11 +1,15 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { applyCategoryRemap, CATEGORY_REMAP_VERSION } from "@/lib/categories";
+import {
+  applyGameRevisions,
+  GAME_REVISIONS_VERSION,
+  SCORE_ORDER_SEEDS,
+} from "@/lib/game-revisions";
 import { Game, UserProfile, Score, Preferences } from "@/types";
 
 export const KEYS = {
   GAMES: "games",
   DEFAULT_GAME_IDS_OFFERED: "defaultGameIdsOffered",
-  CATEGORY_REMAP_APPLIED: "categoryRemapApplied",
+  GAME_REVISIONS_APPLIED: "gameRevisionsApplied",
   USER_PROFILE: "userProfile",
   SCORES: "scores",
   PREFERENCES: "preferences",
@@ -17,21 +21,21 @@ export async function getGames(): Promise<Game[]> {
   try {
     const data = await AsyncStorage.getItem(KEYS.GAMES);
     let storedGames: Game[] = data ? JSON.parse(data) : [];
-    // One-off category remap for libraries created before a category existed.
-    // Stamping updatedAt makes the change local-newer, so the next merge sync
-    // (lib/merge.ts) uploads it — no eager push needed here.
+    // One-off default-game revisions (category moves, renames, score
+    // directions) for existing libraries. Stamping updatedAt makes changes
+    // local-newer, so the next merge sync (lib/merge.ts) uploads them.
     if (storedGames.length > 0) {
-      const remapApplied = await AsyncStorage.getItem(KEYS.CATEGORY_REMAP_APPLIED);
-      if (remapApplied !== CATEGORY_REMAP_VERSION) {
-        const { games: remapped, changed } = applyCategoryRemap(storedGames);
+      const revisionsApplied = await AsyncStorage.getItem(KEYS.GAME_REVISIONS_APPLIED);
+      if (revisionsApplied !== GAME_REVISIONS_VERSION) {
+        const { games: revised, changed } = applyGameRevisions(storedGames);
         if (changed.length > 0) {
           const stampedIds = new Set(changed.map((g) => g.id));
-          storedGames = remapped.map((g) =>
+          storedGames = revised.map((g) =>
             stampedIds.has(g.id) ? { ...g, updatedAt: Date.now() } : g
           );
           await saveGames(storedGames);
         }
-        await AsyncStorage.setItem(KEYS.CATEGORY_REMAP_APPLIED, CATEGORY_REMAP_VERSION);
+        await AsyncStorage.setItem(KEYS.GAME_REVISIONS_APPLIED, GAME_REVISIONS_VERSION);
       }
     }
     const defaultGames = getDefaultGames();
@@ -286,7 +290,7 @@ export async function savePreferences(preferences: Preferences): Promise<void> {
 
 // Default data
 function getDefaultGames(): Game[] {
-  return [
+  const defaults: Game[] = [
     {
       id: "wordle",
       name: "Wordle",
@@ -527,8 +531,8 @@ function getDefaultGames(): Game[] {
     },
     {
       id: "heardle",
-      name: "Heardle",
-      url: "https://www.spotify.com/heardle",
+      name: "Heardle Unlimited",
+      url: "https://www.heardle.info",
       category: "Trivia",
       icon: "🎵",
       dateAdded: Date.now(),
@@ -680,6 +684,11 @@ function getDefaultGames(): Game[] {
       notes: "",
     },
   ];
+  // Keep new installs in agreement with the revision-retrofitted ones.
+  return defaults.map((g) => ({
+    ...g,
+    scoreOrder: SCORE_ORDER_SEEDS[g.id] ?? "higher",
+  }));
 }
 
 function getDefaultPreferences(): Preferences {

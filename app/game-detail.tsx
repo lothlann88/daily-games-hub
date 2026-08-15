@@ -22,8 +22,14 @@ import { useGames, useScores } from "@/hooks/use-storage";
 import { getFriendLeaderboard } from "@/lib/friends";
 import { syncGamesToCloud, syncScoresToCloud } from "@/lib/sync";
 import { updateGameStreaks, wasPlayedToday } from "@/lib/streaks";
-import type { Score } from "@/types";
+import type { Score, ScoreOrder } from "@/types";
 import type { FriendLeaderboardEntry } from "@/types/friends";
+
+const SCORE_ORDER_LABELS: Record<ScoreOrder, string> = {
+  higher: "higher is better",
+  lower: "lower is better",
+  none: "unscored",
+};
 
 const SERIF = Fonts!.serif;
 const SANS = Fonts!.sans;
@@ -71,7 +77,7 @@ export default function GameDetailScreen() {
   const loadHeadToHead = useCallback(async () => {
     if (!gameId) return;
     try {
-      const entries = await getFriendLeaderboard(gameId);
+      const entries = await getFriendLeaderboard(gameId, game?.scoreOrder);
       // Only worth showing when someone besides you is on the board
       setHeadToHead(entries.some((e) => !e.is_current_user) ? entries : []);
     } catch (err) {
@@ -79,7 +85,7 @@ export default function GameDetailScreen() {
       console.log("[GameDetail] Head-to-head unavailable:", err);
       setHeadToHead([]);
     }
-  }, [gameId]);
+  }, [gameId, game?.scoreOrder]);
 
   useEffect(() => {
     loadHeadToHead();
@@ -174,6 +180,18 @@ export default function GameDetailScreen() {
     } finally {
       setSavingEdit(false);
     }
+  };
+
+  const handleCycleScoreOrder = async () => {
+    if (!game) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    const cycle: ScoreOrder[] = ["higher", "lower", "none"];
+    const current = game.scoreOrder ?? "higher";
+    const scoreOrder = cycle[(cycle.indexOf(current) + 1) % cycle.length];
+    await updateGame(game.id, { scoreOrder });
+    syncGamesToCloud([{ ...game, scoreOrder, updatedAt: Date.now() }]).catch((err) =>
+      console.log("[GameDetail] Score order push failed:", err)
+    );
   };
 
   const handleToggleFavorite = async () => {
@@ -448,14 +466,38 @@ export default function GameDetailScreen() {
             { borderTopColor: palette.hairline },
           ]}
         >
-          <Text
-            style={[
-              styles.sectionLabel,
-              { color: palette.muted, fontFamily: SERIF, marginBottom: 14 },
-            ]}
+          <View
+            style={{
+              flexDirection: "row",
+              justifyContent: "space-between",
+              alignItems: "baseline",
+              marginBottom: 14,
+            }}
           >
-            § Log Today
-          </Text>
+            <Text
+              style={[
+                styles.sectionLabel,
+                { color: palette.muted, fontFamily: SERIF },
+              ]}
+            >
+              § Log Today
+            </Text>
+            <Pressable onPress={handleCycleScoreOrder} hitSlop={8}>
+              <Text
+                style={{
+                  fontSize: 11,
+                  fontStyle: "italic",
+                  color: palette.muted,
+                  fontFamily: SERIF,
+                }}
+              >
+                scoring:{" "}
+                <Text style={{ color: palette.text }}>
+                  {SCORE_ORDER_LABELS[game.scoreOrder ?? "higher"]}
+                </Text>
+              </Text>
+            </Pressable>
+          </View>
 
           <View
             style={[

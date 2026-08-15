@@ -61,6 +61,7 @@ function gameToRecord(userId: string, game: Game) {
     notes: game.notes || "",
     tags: game.tags || [],
     updated_at: game.updatedAt || 0,
+    score_order: game.scoreOrder || "",
   };
 }
 
@@ -85,6 +86,7 @@ function recordToGame(record: any): Game {
     // autodate — slightly generous (it bumps on every push) but self-healing
     // after the record's first stamped write.
     updatedAt: record.updated_at || new Date(record.updated).getTime(),
+    ...(record.score_order ? { scoreOrder: record.score_order } : {}),
   };
 }
 

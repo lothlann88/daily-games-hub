@@ -10,6 +10,14 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: "1.6.0",
+    date: "2026-08-15",
+    entries: [
+      "Games now know their scoring direction — higher is better (points), lower is better (guesses, time), or unscored. Head-to-head rankings respect it, so the fewest Wordle guesses wins rather than the most. Set it when adding a game, or tap “scoring:” on a game's page to change it; your existing games have been set to sensible defaults.",
+      "Heardle now points at Heardle Unlimited (heardle.info) — the original shut down.",
+    ],
+  },
+  {
     version: "1.5.0",
     date: "2026-08-15",
     entries: [

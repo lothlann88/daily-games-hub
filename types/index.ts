@@ -14,7 +14,12 @@ export interface Game {
   tags: string[]; // Tags like "Quick", "Challenging", "Logic", etc.
   notes?: string; // Personal notes about the game (strategies, tips, best scores)
   updatedAt?: number; // Last metadata write (epoch ms) — LWW clock for sync merge
+  scoreOrder?: ScoreOrder; // absent = "higher" (pre-1.6 records)
 }
+
+// Whether a bigger number is a better result for this game (points), a
+// smaller one (guesses, time), or the game has no meaningful score.
+export type ScoreOrder = "higher" | "lower" | "none";
 
 export interface UserProfile {
   id: string;

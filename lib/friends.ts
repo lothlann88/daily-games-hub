@@ -1,4 +1,6 @@
 import { pb, currentUserId } from "./pocketbase";
+import { beatsScore, compareScoresBestFirst } from "@/lib/score-order";
+import type { ScoreOrder } from "@/types";
 import type {
   Friend,
   FriendRequestWithProfile,
@@ -254,7 +256,10 @@ export async function checkPendingRequest(
  * Get friend scores for a specific game. Friends' scores are readable thanks
  * to the friend-visibility rule on the scores collection.
  */
-export async function getFriendScoresForGame(gameId: string): Promise<FriendScore[]> {
+export async function getFriendScoresForGame(
+  gameId: string,
+  scoreOrder?: ScoreOrder
+): Promise<FriendScore[]> {
   const userId = currentUserId();
   if (!userId) return [];
 
@@ -272,8 +277,7 @@ export async function getFriendScoresForGame(gameId: string): Promise<FriendScor
   for (const score of scores as any[]) {
     if (score.deleted) continue; // soft-deleted tombstone
     const current = bestByFriend.get(score.owner);
-    const scoreValue = (s: any) => (s.score != null ? s.score : -Infinity);
-    if (!current || scoreValue(score) > scoreValue(current)) {
+    if (!current || beatsScore(score.score, current.score, scoreOrder)) {
       bestByFriend.set(score.owner, score);
     }
   }
@@ -293,7 +297,7 @@ export async function getFriendScoresForGame(gameId: string): Promise<FriendScor
   }
 
   // Best score first, then add rank
-  friendScores.sort((a, b) => (b.score ?? -Infinity) - (a.score ?? -Infinity));
+  friendScores.sort((a, b) => compareScoresBestFirst(a.score, b.score, scoreOrder));
   return friendScores.map((fs, index) => ({
     ...fs,
     rank: index + 1,
@@ -303,7 +307,10 @@ export async function getFriendScoresForGame(gameId: string): Promise<FriendScor
 /**
  * Get friend leaderboard for a game (including current user)
  */
-export async function getFriendLeaderboard(gameId: string): Promise<FriendLeaderboardEntry[]> {
+export async function getFriendLeaderboard(
+  gameId: string,
+  scoreOrder?: ScoreOrder
+): Promise<FriendLeaderboardEntry[]> {
   const userId = currentUserId();
   if (!userId) return [];
 
@@ -334,7 +341,9 @@ export async function getFriendLeaderboard(gameId: string): Promise<FriendLeader
       });
     } else {
       existing.total_plays++;
-      if (numScore !== noScoreSentinel && numScore > existing.best_score) {
+      const incumbent =
+        existing.best_score === noScoreSentinel ? null : existing.best_score;
+      if (numScore !== noScoreSentinel && beatsScore(numScore, incumbent, scoreOrder)) {
         existing.best_score = numScore;
       }
     }
@@ -369,10 +378,8 @@ export async function getFriendLeaderboard(gameId: string): Promise<FriendLeader
     });
   }
 
-  // Sort by best score (entries with no score go last)
-  const scoreValue = (entry: FriendLeaderboardEntry) =>
-    entry.best_score === -Infinity || !Number.isFinite(entry.best_score) ? -Infinity : entry.best_score;
-  entries.sort((a, b) => scoreValue(b) - scoreValue(a));
+  // Sort by best score per the game's direction (entries with no score last)
+  entries.sort((a, b) => compareScoresBestFirst(a.best_score, b.best_score, scoreOrder));
   entries.forEach((entry, index) => {
     entry.rank = index + 1;
   });

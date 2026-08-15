@@ -20,7 +20,13 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useGames } from "@/hooks/use-storage";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { CATEGORIES } from "@/lib/categories";
-import { Game, GameCategory } from "@/types";
+import { Game, GameCategory, ScoreOrder } from "@/types";
+
+const SCORE_ORDER_OPTIONS: { value: ScoreOrder; label: string }[] = [
+  { value: "higher", label: "Higher is better" },
+  { value: "lower", label: "Lower is better" },
+  { value: "none", label: "No score" },
+];
 const EMOJI_OPTIONS = ["🎮", "🎯", "🎲", "🧩", "🔤", "📰", "👑", "📍", "🔗", "🐝", "🔢", "🎪", "🎨", "🎭", "🎬"];
 
 export default function AddGameScreen() {
@@ -28,6 +34,7 @@ export default function AddGameScreen() {
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
   const [category, setCategory] = useState<GameCategory>("Word Games");
+  const [scoreOrder, setScoreOrder] = useState<ScoreOrder>("higher");
   const [icon, setIcon] = useState("🎮");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -68,6 +75,7 @@ export default function AddGameScreen() {
         name: name.trim(),
         url: url.trim(),
         category,
+        scoreOrder,
         icon,
         dateAdded: Date.now(),
         currentStreak: 0,
@@ -185,6 +193,42 @@ export default function AddGameScreen() {
           </View>
 
           <View style={styles.formGroup}>
+            <ThemedText style={styles.label}>Scoring</ThemedText>
+            <View style={styles.categoryGrid}>
+              {SCORE_ORDER_OPTIONS.map(({ value, label }) => (
+                <Pressable
+                  key={value}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setScoreOrder(value);
+                  }}
+                  style={[
+                    styles.categoryButton,
+                    { borderColor },
+                    scoreOrder === value && {
+                      backgroundColor: tintColor,
+                      borderColor: tintColor,
+                    },
+                  ]}
+                >
+                  <ThemedText
+                    style={[
+                      styles.categoryButtonText,
+                      scoreOrder === value && { color: "#fff" },
+                    ]}
+                  >
+                    {label}
+                  </ThemedText>
+                </Pressable>
+              ))}
+            </View>
+            <ThemedText style={styles.helperText}>
+              Whether a bigger number (points) or a smaller one (guesses, time)
+              is the better result. Used to rank head-to-head.
+            </ThemedText>
+          </View>
+
+          <View style={styles.formGroup}>
             <ThemedText style={styles.label}>Icon</ThemedText>
             <View style={styles.iconGrid}>
               {EMOJI_OPTIONS.map((emoji) => (
@@ -287,6 +331,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     lineHeight: 20,
+  },
+  helperText: {
+    fontSize: 12,
+    lineHeight: 16,
+    opacity: 0.6,
   },
   input: {
     paddingVertical: 12,
