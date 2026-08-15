@@ -40,7 +40,7 @@ export const SCORE_ORDER_SEEDS: Record<string, ScoreOrder> = {
   "gamedle-keywords": "lower",
   "clues-by-sam": "lower", // solve time
   duolingo: "higher", // XP
-  "movie-grid": "lower", // guesses used
+  "movie-grid": "higher", // correct cells out of 9
 };
 
 // v1 category moves (kept so a device that never ran v1 still gets them).
