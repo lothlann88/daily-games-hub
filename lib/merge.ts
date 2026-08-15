@@ -32,16 +32,46 @@ export function mergeLibraries(
   cloud: LibrarySnapshot,
   now: number = Date.now()
 ): MergeResult {
-  // Scores are append-only records with client-generated ids: union by id.
-  const cloudScoreIds = new Set(cloud.scores.map((s) => s.id));
-  const scoresToPush = local.scores.filter((s) => !cloudScoreIds.has(s.id));
-  const scores = [...cloud.scores, ...scoresToPush];
+  // Scores: union by id; when both sides hold a score, the newer edit
+  // (updatedAt, 0 when never edited) wins, ties to cloud. Deleted scores are
+  // tombstones — kept in the merged set so the deletion propagates, filtered
+  // out of every read path by lib/storage.ts.
+  const cloudScoresById = new Map(cloud.scores.map((s) => [s.id, s]));
+  const scores: Score[] = [];
+  const scoresToPush: Score[] = [];
+  const localScoreIds = new Set(local.scores.map((s) => s.id));
+  for (const localScore of local.scores) {
+    const cloudScore = cloudScoresById.get(localScore.id);
+    if (!cloudScore) {
+      scores.push(localScore);
+      scoresToPush.push(localScore);
+    } else if ((localScore.updatedAt ?? 0) > (cloudScore.updatedAt ?? 0)) {
+      scores.push(localScore);
+      scoresToPush.push(localScore);
+    } else {
+      scores.push(cloudScore);
+    }
+  }
+  for (const cloudScore of cloud.scores) {
+    if (!localScoreIds.has(cloudScore.id)) scores.push(cloudScore);
+  }
 
+  // Active scores contribute their timestamps to play history; tombstoned
+  // ones subtract theirs — even from a stale game record's stored history.
+  // (Two distinct plays sharing an exact millisecond could collide here;
+  // separate log actions make that practically impossible.)
   const scoreDatesByGame = new Map<string, number[]>();
+  const deletedDatesByGame = new Map<string, Set<number>>();
   for (const score of scores) {
-    const dates = scoreDatesByGame.get(score.gameId);
-    if (dates) dates.push(score.datePlayed);
-    else scoreDatesByGame.set(score.gameId, [score.datePlayed]);
+    if (score.deleted) {
+      const dates = deletedDatesByGame.get(score.gameId);
+      if (dates) dates.add(score.datePlayed);
+      else deletedDatesByGame.set(score.gameId, new Set([score.datePlayed]));
+    } else {
+      const dates = scoreDatesByGame.get(score.gameId);
+      if (dates) dates.push(score.datePlayed);
+      else scoreDatesByGame.set(score.gameId, [score.datePlayed]);
+    }
   }
 
   const localById = new Map(local.games.map((g) => [g.id, g]));
@@ -74,20 +104,24 @@ export function mergeLibraries(
     // the merged scores — never trusted from either record. This is what makes
     // two devices logging plays independently both count: the other side's
     // score contributes its timestamp regardless of which record won LWW.
+    const deletedDates = deletedDatesByGame.get(id);
     const playHistory = [
       ...new Set([
         ...(localGame?.playHistory ?? []),
         ...(cloudGame?.playHistory ?? []),
         ...(scoreDatesByGame.get(id) ?? []),
       ]),
-    ].sort((a, b) => a - b);
+    ]
+      .filter((ts) => !deletedDates?.has(ts))
+      .sort((a, b) => a - b);
 
     const merged: Game = {
       ...base,
       playHistory,
-      ...(playHistory.length > 0
-        ? { lastPlayed: playHistory[playHistory.length - 1] }
-        : {}),
+      // undefined (not the base's stale value) when every play was deleted;
+      // JSON serialisation drops the key.
+      lastPlayed:
+        playHistory.length > 0 ? playHistory[playHistory.length - 1] : undefined,
       currentStreak: calculateCurrentStreak(playHistory, now),
       longestStreak: Math.max(
         calculateLongestStreak(playHistory),

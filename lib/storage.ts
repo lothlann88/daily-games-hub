@@ -154,8 +154,10 @@ export async function setOnboardingComplete(): Promise<void> {
   }
 }
 
-// Scores
-export async function getScores(): Promise<Score[]> {
+// Scores. Deleted scores are soft-delete tombstones (kept so the deletion
+// propagates through the sync merge); every read path filters them out, only
+// the mutation paths below and lib/sync.ts see them.
+async function getRawScores(): Promise<Score[]> {
   try {
     const data = await AsyncStorage.getItem(KEYS.SCORES);
     return data ? JSON.parse(data) : [];
@@ -163,6 +165,11 @@ export async function getScores(): Promise<Score[]> {
     console.error("Error loading scores:", error);
     return [];
   }
+}
+
+export async function getScores(): Promise<Score[]> {
+  const scores = await getRawScores();
+  return scores.filter((s) => !s.deleted);
 }
 
 export async function saveScores(scores: Score[]): Promise<void> {
@@ -174,7 +181,7 @@ export async function saveScores(scores: Score[]): Promise<void> {
 }
 
 export async function addScore(score: Score): Promise<void> {
-  const scores = await getScores();
+  const scores = await getRawScores();
   scores.push(score);
   await saveScores(scores);
   
@@ -205,6 +212,55 @@ export async function addScore(score: Score): Promise<void> {
 export async function getScoresByGame(gameId: string): Promise<Score[]> {
   const scores = await getScores();
   return scores.filter((s) => s.gameId === gameId).sort((a, b) => b.datePlayed - a.datePlayed);
+}
+
+/**
+ * Correct a logged play (result, score value, note). Returns the updated
+ * score for the caller to push to the cloud, or null if not found.
+ */
+export async function updateScore(
+  scoreId: string,
+  updates: Pick<Partial<Score>, "result" | "score" | "notes">
+): Promise<Score | null> {
+  const scores = await getRawScores();
+  const index = scores.findIndex((s) => s.id === scoreId && !s.deleted);
+  if (index === -1) return null;
+  scores[index] = { ...scores[index], ...updates, updatedAt: Date.now() };
+  await saveScores(scores);
+  return scores[index];
+}
+
+/**
+ * Soft-delete a logged play and rebuild the owning game's play-derived
+ * fields without it. Returns the tombstone and the updated game (both for
+ * pushing to the cloud), or null if the score wasn't found.
+ */
+export async function deleteScore(
+  scoreId: string
+): Promise<{ score: Score; game: Game | null } | null> {
+  const scores = await getRawScores();
+  const index = scores.findIndex((s) => s.id === scoreId && !s.deleted);
+  if (index === -1) return null;
+  const tombstone: Score = { ...scores[index], deleted: true, updatedAt: Date.now() };
+  scores[index] = tombstone;
+  await saveScores(scores);
+
+  const games = await getGames();
+  const game = games.find((g) => g.id === tombstone.gameId);
+  if (!game) return { score: tombstone, game: null };
+
+  const { calculateCurrentStreak, calculateLongestStreak } = await import("./streaks");
+  const playHistory = game.playHistory.filter((ts) => ts !== tombstone.datePlayed);
+  await updateGame(game.id, {
+    playHistory,
+    lastPlayed: playHistory.length > 0 ? Math.max(...playHistory) : undefined,
+    currentStreak: calculateCurrentStreak(playHistory),
+    // Recomputed from what remains — the sync merge's max() with the cloud
+    // copy may keep an inflated best-ever until both sides converge.
+    longestStreak: calculateLongestStreak(playHistory),
+  });
+  const updatedGames = await getGames();
+  return { score: tombstone, game: updatedGames.find((g) => g.id === game.id) ?? null };
 }
 
 // Removed getScoresByPlayer - no longer needed in single-user mode

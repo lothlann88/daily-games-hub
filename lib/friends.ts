@@ -270,6 +270,7 @@ export async function getFriendScoresForGame(gameId: string): Promise<FriendScor
 
   const bestByFriend = new Map<string, any>();
   for (const score of scores as any[]) {
+    if (score.deleted) continue; // soft-deleted tombstone
     const current = bestByFriend.get(score.owner);
     const scoreValue = (s: any) => (s.score != null ? s.score : -Infinity);
     if (!current || scoreValue(score) > scoreValue(current)) {
@@ -322,6 +323,7 @@ export async function getFriendLeaderboard(gameId: string): Promise<FriendLeader
 
   const noScoreSentinel = -Infinity;
   for (const score of scores as any[]) {
+    if (score.deleted) continue; // soft-deleted tombstone
     const numScore = score.score != null ? score.score : noScoreSentinel;
     const existing = userStats.get(score.owner);
     if (!existing) {

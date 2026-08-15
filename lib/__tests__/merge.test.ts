@@ -51,6 +51,74 @@ describe("score merge", () => {
   });
 });
 
+describe("score edits and deletions", () => {
+  it("lets the newer edit of a shared score win and pushes it", () => {
+    const original = makeScore({ id: "s1", gameId: "wordle", result: "win" });
+    const corrected = makeScore({
+      id: "s1",
+      gameId: "wordle",
+      result: "loss",
+      updatedAt: NOW,
+    });
+    const result = mergeLibraries(
+      { games: [], scores: [corrected] },
+      { games: [], scores: [original] },
+      NOW
+    );
+    expect(result.scores).toHaveLength(1);
+    expect(result.scores[0].result).toBe("loss");
+    expect(result.scoresToPush.map((s) => s.id)).toEqual(["s1"]);
+  });
+
+  it("keeps the cloud copy of a shared score when it is the newer edit", () => {
+    const stale = makeScore({ id: "s1", gameId: "wordle", result: "win", updatedAt: NOW - DAY });
+    const fresh = makeScore({ id: "s1", gameId: "wordle", result: "draw", updatedAt: NOW });
+    const result = mergeLibraries(
+      { games: [], scores: [stale] },
+      { games: [], scores: [fresh] },
+      NOW
+    );
+    expect(result.scores[0].result).toBe("draw");
+    expect(result.scoresToPush).toEqual([]);
+  });
+
+  it("propagates a tombstone and removes its play from history and streaks", () => {
+    // Both game records still carry today's timestamp in playHistory, but the
+    // play was deleted locally: the tombstone must subtract it everywhere.
+    const tombstone = makeScore({
+      id: "s1",
+      gameId: "wordle",
+      datePlayed: TODAY,
+      deleted: true,
+      updatedAt: NOW,
+    });
+    const local = makeGame({ id: "wordle", playHistory: [YESTERDAY] });
+    const cloud = makeGame({ id: "wordle", playHistory: [YESTERDAY, TODAY], currentStreak: 2 });
+    const result = mergeLibraries(
+      { games: [local], scores: [tombstone] },
+      { games: [cloud], scores: [makeScore({ id: "s1", gameId: "wordle", datePlayed: TODAY })] },
+      NOW
+    );
+    expect(result.games[0].playHistory).toEqual([YESTERDAY]);
+    expect(result.games[0].currentStreak).toBe(1);
+    expect(result.games[0].lastPlayed).toBe(YESTERDAY);
+    // Tombstone survives in the merged set and pushes to the cloud.
+    expect(result.scores[0].deleted).toBe(true);
+    expect(result.scoresToPush.map((s) => s.id)).toEqual(["s1"]);
+  });
+
+  it("does not let a deleted score contribute a play to history", () => {
+    const tombstone = makeScore({ id: "s1", gameId: "wordle", datePlayed: TODAY, deleted: true, updatedAt: NOW });
+    const result = mergeLibraries(
+      { games: [makeGame({ id: "wordle" })], scores: [] },
+      { games: [], scores: [tombstone] },
+      NOW
+    );
+    expect(result.games[0].playHistory).toEqual([]);
+    expect(result.games[0].currentStreak).toBe(0);
+  });
+});
+
 describe("game metadata merge", () => {
   it("keeps and pushes local-only games", () => {
     const game = makeGame({ id: "custom", updatedAt: NOW });

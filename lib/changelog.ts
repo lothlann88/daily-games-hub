@@ -10,6 +10,13 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: "1.5.0",
+    date: "2026-08-15",
+    entries: [
+      "Mislogged a play? Tap any entry in a game's Ledger to change its result, score or note — or delete it entirely. Deleting a play also un-counts it from your streak, and corrections carry across to the other player's view.",
+    ],
+  },
+  {
     version: "1.4.0",
     date: "2026-08-13",
     entries: [

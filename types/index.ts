@@ -33,6 +33,8 @@ export interface Score {
   result: "win" | "loss" | "draw";
   datePlayed: number;
   notes?: string;
+  updatedAt?: number; // last edit (epoch ms) — LWW clock for sync merge
+  deleted?: boolean; // soft-delete tombstone; never hard-delete a synced score
 }
 
 export interface Preferences {

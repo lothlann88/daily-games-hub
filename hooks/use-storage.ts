@@ -85,11 +85,29 @@ export function useScores() {
     await loadScores();
   }, [loadScores]);
 
+  const updateScore = useCallback(
+    async (scoreId: string, updates: Pick<Partial<Score>, "result" | "score" | "notes">) => {
+      const updated = await storage.updateScore(scoreId, updates);
+      await loadScores();
+      return updated;
+    },
+    [loadScores]
+  );
+
+  const deleteScore = useCallback(
+    async (scoreId: string) => {
+      const result = await storage.deleteScore(scoreId);
+      await loadScores();
+      return result;
+    },
+    [loadScores]
+  );
+
   const getScoresByGame = useCallback(async (gameId: string) => {
     return await storage.getScoresByGame(gameId);
   }, []);
 
-  return { scores, loading, addScore, getScoresByGame, refresh: loadScores };
+  return { scores, loading, addScore, updateScore, deleteScore, getScoresByGame, refresh: loadScores };
 }
 
 export function usePreferences() {

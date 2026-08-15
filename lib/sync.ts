@@ -98,6 +98,8 @@ function scoreToRecord(userId: string, score: Score) {
     result: score.result,
     date_played: score.datePlayed,
     notes: score.notes || "",
+    updated_at: score.updatedAt || 0,
+    deleted: score.deleted || false,
   };
 }
 
@@ -109,6 +111,8 @@ function recordToScore(record: any): Score {
     result: record.result as "win" | "loss" | "draw",
     datePlayed: record.date_played,
     notes: record.notes || undefined,
+    ...(record.updated_at ? { updatedAt: record.updated_at } : {}),
+    ...(record.deleted ? { deleted: true } : {}),
   };
 }
 

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -31,8 +32,8 @@ const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 export default function GameDetailScreen() {
   const { gameId } = useLocalSearchParams<{ gameId: string }>();
-  const { games, updateGame } = useGames();
-  const { addScore, getScoresByGame } = useScores();
+  const { games, updateGame, refresh: refreshGames } = useGames();
+  const { addScore, updateScore, deleteScore, getScoresByGame } = useScores();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const scheme = useColorScheme() ?? "light";
@@ -48,6 +49,14 @@ export default function GameDetailScreen() {
   const [logged, setLogged] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [headToHead, setHeadToHead] = useState<FriendLeaderboardEntry[]>([]);
+
+  // Ledger entry being corrected (null = modal closed) + its draft fields.
+  const [editing, setEditing] = useState<Score | null>(null);
+  const [editResult, setEditResult] = useState<"win" | "loss" | "draw">("win");
+  const [editScoreText, setEditScoreText] = useState("");
+  const [editNote, setEditNote] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [savingEdit, setSavingEdit] = useState(false);
 
   const loadRecent = useCallback(async () => {
     if (!gameId) return;
@@ -96,6 +105,74 @@ export default function GameDetailScreen() {
       });
     } catch (err) {
       console.error("Error opening game:", err);
+    }
+  };
+
+  const openEdit = (score: Score) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    setEditing(score);
+    setEditResult(score.result);
+    setEditScoreText(score.score !== undefined && score.score !== null ? String(score.score) : "");
+    setEditNote(score.notes ?? "");
+    setConfirmDelete(false);
+  };
+
+  const closeEdit = () => {
+    setEditing(null);
+    setConfirmDelete(false);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editing || savingEdit) return;
+    setSavingEdit(true);
+    try {
+      const parsed = editScoreText.trim() ? parseFloat(editScoreText) : undefined;
+      const updated = await updateScore(editing.id, {
+        result: editResult,
+        score: parsed !== undefined && !Number.isNaN(parsed) ? parsed : undefined,
+        notes: editNote.trim() || undefined,
+      });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      await loadRecent();
+      if (updated) {
+        // Best-effort push; the merge sync's LWW picks it up otherwise.
+        syncScoresToCloud([updated])
+          .then(() => loadHeadToHead())
+          .catch((err) => console.log("[GameDetail] Edit push failed:", err));
+      }
+      closeEdit();
+    } catch (err) {
+      console.error("Error updating score:", err);
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const handleDeleteEntry = async () => {
+    if (!editing || savingEdit) return;
+    if (!confirmDelete) {
+      // Web Alert.alert is a no-op, so confirmation is an in-place second tap.
+      setConfirmDelete(true);
+      return;
+    }
+    setSavingEdit(true);
+    try {
+      const result = await deleteScore(editing.id);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      await loadRecent();
+      await refreshGames();
+      if (result) {
+        // Push the tombstone and the rebuilt game record together.
+        syncScoresToCloud([result.score])
+          .then(() => (result.game ? syncGamesToCloud([result.game]) : undefined))
+          .then(() => loadHeadToHead())
+          .catch((err) => console.log("[GameDetail] Delete push failed:", err));
+      }
+      closeEdit();
+    } catch (err) {
+      console.error("Error deleting score:", err);
+    } finally {
+      setSavingEdit(false);
     }
   };
 
@@ -485,20 +562,34 @@ export default function GameDetailScreen() {
               { borderTopColor: palette.hairline },
             ]}
           >
-            <Text
-              style={[
-                styles.sectionLabel,
-                { color: palette.muted, fontFamily: SERIF, marginBottom: 14 },
-              ]}
-            >
-              § Ledger
-            </Text>
-            {recentScores.map((s, i) => (
-              <View
-                key={s.id}
+            <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 14 }}>
+              <Text
                 style={[
+                  styles.sectionLabel,
+                  { color: palette.muted, fontFamily: SERIF },
+                ]}
+              >
+                § Ledger
+              </Text>
+              <Text
+                style={{
+                  fontSize: 11,
+                  fontStyle: "italic",
+                  color: palette.muted,
+                  fontFamily: SERIF,
+                }}
+              >
+                tap an entry to amend
+              </Text>
+            </View>
+            {recentScores.map((s, i) => (
+              <Pressable
+                key={s.id}
+                onPress={() => openEdit(s)}
+                style={({ pressed }) => [
                   styles.ledgerRow,
                   {
+                    opacity: pressed ? 0.6 : 1,
                     borderBottomWidth:
                       i === recentScores.length - 1 ? 0 : StyleSheet.hairlineWidth,
                     borderBottomColor: palette.hairline,
@@ -542,7 +633,7 @@ export default function GameDetailScreen() {
                 >
                   {s.result}
                 </Text>
-              </View>
+              </Pressable>
             ))}
           </View>
         ) : null}
@@ -628,6 +719,141 @@ export default function GameDetailScreen() {
           </View>
         ) : null}
       </ScrollView>
+
+      {/* Amend-entry modal */}
+      <Modal
+        visible={editing !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={closeEdit}
+      >
+        <View style={styles.editOverlay}>
+          <View
+            style={[
+              styles.editCard,
+              { backgroundColor: palette.surface, borderColor: palette.hairline },
+            ]}
+          >
+            <Text style={[styles.editEyebrow, { color: palette.tint, fontFamily: SERIF }]}>
+              — Amend entry —
+            </Text>
+            <Text style={[styles.editTitle, { color: palette.text, fontFamily: SERIF }]}>
+              {editing ? ledgerLabel(new Date(editing.datePlayed)) : ""}
+            </Text>
+
+            <View style={[styles.tabRow, { borderBottomColor: palette.hairline }]}>
+              {(["win", "loss", "draw"] as const).map((r) => {
+                const isActive = editResult === r;
+                return (
+                  <Pressable
+                    key={r}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+                      setEditResult(r);
+                    }}
+                    style={({ pressed }) => [
+                      styles.tabButton,
+                      {
+                        borderBottomColor: isActive ? palette.tint : "transparent",
+                        opacity: pressed ? 0.7 : 1,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={{
+                        color: isActive ? palette.text : palette.muted,
+                        fontSize: 13,
+                        fontWeight: "600",
+                        letterSpacing: 1,
+                        textTransform: "uppercase",
+                        fontFamily: SANS,
+                      }}
+                    >
+                      {r}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <TextInput
+              value={editScoreText}
+              onChangeText={setEditScoreText}
+              placeholder="Score — e.g. 3/6"
+              placeholderTextColor={palette.muted}
+              style={[
+                styles.fieldInput,
+                {
+                  color: palette.text,
+                  borderBottomColor: palette.hairline,
+                  fontFamily: SERIF,
+                  fontSize: 18,
+                },
+              ]}
+            />
+            <TextInput
+              value={editNote}
+              onChangeText={setEditNote}
+              placeholder="A note, a memory…"
+              placeholderTextColor={palette.muted}
+              style={[
+                styles.fieldInput,
+                {
+                  color: palette.text,
+                  borderBottomColor: palette.hairline,
+                  fontFamily: SERIF,
+                  fontSize: 16,
+                  fontStyle: "italic",
+                },
+              ]}
+            />
+
+            <Pressable
+              onPress={handleSaveEdit}
+              disabled={savingEdit}
+              style={({ pressed }) => [
+                styles.editSave,
+                {
+                  backgroundColor: palette.ink,
+                  opacity: pressed || savingEdit ? 0.7 : 1,
+                },
+              ]}
+            >
+              <Text style={[styles.editSaveLabel, { color: palette.bg, fontFamily: SANS }]}>
+                Save changes
+              </Text>
+            </Pressable>
+
+            <View style={styles.editFooter}>
+              <Pressable onPress={closeEdit} hitSlop={8} disabled={savingEdit}>
+                <Text
+                  style={{
+                    fontFamily: SERIF,
+                    fontStyle: "italic",
+                    fontSize: 13,
+                    color: palette.muted,
+                  }}
+                >
+                  cancel
+                </Text>
+              </Pressable>
+              <Pressable onPress={handleDeleteEntry} hitSlop={8} disabled={savingEdit}>
+                <Text
+                  style={{
+                    fontFamily: SERIF,
+                    fontStyle: "italic",
+                    fontSize: 13,
+                    fontWeight: confirmDelete ? "700" : "400",
+                    color: palette.loss,
+                  }}
+                >
+                  {confirmDelete ? "tap again to delete" : "delete entry"}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ThemedView>
   );
 }
@@ -652,6 +878,51 @@ function ledgerLabel(date: Date): string {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  editOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 24,
+  },
+  editCard: {
+    width: "100%",
+    maxWidth: 420,
+    borderRadius: 4,
+    borderWidth: 1,
+    paddingTop: 22,
+    paddingHorizontal: 22,
+    paddingBottom: 18,
+  },
+  editEyebrow: {
+    fontSize: 11,
+    fontStyle: "italic",
+    letterSpacing: 0.3,
+    marginBottom: 4,
+  },
+  editTitle: {
+    fontSize: 24,
+    fontWeight: "500",
+    letterSpacing: -0.5,
+    marginBottom: 14,
+  },
+  editSave: {
+    borderRadius: 4,
+    paddingVertical: 12,
+    alignItems: "center",
+    marginTop: 18,
+  },
+  editSaveLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+    letterSpacing: 0.6,
+    textTransform: "uppercase",
+  },
+  editFooter: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 14,
   },
   center: {
     justifyContent: "center",
