@@ -1,3 +1,4 @@
+import { faviconUrlFor } from "@/lib/logo-fetcher";
 import type { Game, GameCategory, ScoreOrder } from "@/types";
 
 // One-off patches to games in EXISTING libraries, keyed by client id —
@@ -6,7 +7,7 @@ import type { Game, GameCategory, ScoreOrder } from "@/types";
 // entries change so already-migrated devices re-run; patches must stay
 // idempotent. This generalises the old category remap: fresh installs get
 // the same values straight from getDefaultGames().
-export const GAME_REVISIONS_VERSION = "3";
+export const GAME_REVISIONS_VERSION = "4";
 
 // Score direction seeds for the default library. Also merged into
 // getDefaultGames() so new installs agree with retrofitted ones.
@@ -41,6 +42,10 @@ export const SCORE_ORDER_SEEDS: Record<string, ScoreOrder> = {
   "clues-by-sam": "lower", // solve time
   duolingo: "higher", // XP
   "movie-grid": "higher", // correct cells out of 9
+  quordle: "lower", // guesses
+  octordle: "lower", // guesses
+  timdle: "higher", // points
+  landmarkr: "lower", // photos revealed
 };
 
 // v1 category moves (kept so a device that never ran v1 still gets them).
@@ -81,6 +86,14 @@ function buildRevisions(): Record<string, Partial<Game>> {
   });
   // v3: film games join the new Movies category.
   patch("framed", { category: "Movies", categories: ["Movies", "Trivia"] });
+  // v4: any game moved to a new URL above kept the favicon of the site it
+  // left — Heardle was still showing Spotify's logo. Refresh the logo from
+  // the new URL so the badge follows the move.
+  for (const [id, fields] of Object.entries(revisions)) {
+    if (!fields.url) continue;
+    const logoUrl = faviconUrlFor(fields.url);
+    if (logoUrl) patch(id, { logoUrl });
+  }
   return revisions;
 }
 

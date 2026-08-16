@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { CATEGORIES } from "@/lib/categories";
 import { applyGameRevisions, GAME_REVISIONS, SCORE_ORDER_SEEDS } from "@/lib/game-revisions";
+import { faviconUrlFor } from "@/lib/logo-fetcher";
 import type { Game } from "@/types";
 
 function makeGame(id: string, overrides: Partial<Game> = {}): Game {
@@ -53,6 +54,16 @@ describe("GAME_REVISIONS", () => {
       url: "https://www.heardle.info",
       scoreOrder: "lower",
     });
+  });
+
+  it("refreshes the logo of every game it moves to a new URL", () => {
+    for (const patch of Object.values(GAME_REVISIONS)) {
+      if (!patch.url) continue;
+      expect(patch.logoUrl).toBe(faviconUrlFor(patch.url));
+    }
+    // The Spotify badge left over from heardle's old home is the case that
+    // prompted this.
+    expect(GAME_REVISIONS.heardle.logoUrl).toContain("www.heardle.info");
   });
 });
 

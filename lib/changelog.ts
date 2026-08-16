@@ -10,6 +10,14 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: "1.8.0",
+    date: "2026-08-16",
+    entries: [
+      "Four new games join the library: Quordle and Octordle (four and eight Wordles at once, from Merriam-Webster), Timdle (put nine historical events in order) and Landmarkr (name the place from up to six photos).",
+      "Heardle's badge no longer shows the Spotify logo — games moved to a new home now pick up that site's icon.",
+    ],
+  },
+  {
     version: "1.7.0",
     date: "2026-08-15",
     entries: [
