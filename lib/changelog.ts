@@ -10,6 +10,13 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: "1.8.1",
+    date: "2026-08-16",
+    entries: [
+      "Smart sort no longer looks shuffled: games still to play come first and hot streaks stay at the top as before, but games on the same streak are now listed A–Z rather than in the order they happened to be stored.",
+    ],
+  },
+  {
     version: "1.8.0",
     date: "2026-08-16",
     entries: [

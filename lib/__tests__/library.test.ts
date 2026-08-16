@@ -134,6 +134,30 @@ describe("filterAndSortLibrary", () => {
     }
   });
 
+  it("falls back to A–Z in smart mode instead of the stored order", () => {
+    const games = [
+      makeGame({ id: "cherry", name: "Cherry" }),
+      makeGame({ id: "apple", name: "Apple" }),
+      makeGame({ id: "banana", name: "Banana" }),
+      makeGame({ id: "streaky", name: "Zebra", currentStreak: 4 }),
+      makeGame({ id: "played", name: "Aardvark", playedToday: true }),
+    ];
+    const result = filterAndSortLibrary(games, { query: "", category: null });
+    expect(result.map((g) => g.id)).toEqual([
+      "streaky",
+      "apple",
+      "banana",
+      "cherry",
+      "played",
+    ]);
+    // Same games, different stored order — same result.
+    const shuffled = filterAndSortLibrary([...games].reverse(), {
+      query: "",
+      category: null,
+    });
+    expect(shuffled.map((g) => g.id)).toEqual(result.map((g) => g.id));
+  });
+
   it("orders each group: unplayed before played, then streak descending", () => {
     const games = [
       makeGame({ id: "played-long", playedToday: true, currentStreak: 20 }),

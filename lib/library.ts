@@ -41,10 +41,13 @@ export interface LibraryFilter {
 type SortableGame = Game & { playedToday: boolean };
 
 const COMPARATORS: Record<LibrarySortMode, (a: SortableGame, b: SortableGame) => number> = {
-  // Games still to play today first, longest current streak first.
+  // Games still to play today first, longest current streak first, then A–Z.
+  // The name tiebreak matters: most libraries are mostly zero-streak, and
+  // without it those games fell through to the stored array order, which
+  // shifts under a sync merge and reads as random.
   smart: (a, b) => {
     if (a.playedToday !== b.playedToday) return a.playedToday ? 1 : -1;
-    return b.currentStreak - a.currentStreak;
+    return b.currentStreak - a.currentStreak || a.name.localeCompare(b.name);
   },
   streak: (a, b) =>
     b.currentStreak - a.currentStreak ||
