@@ -68,3 +68,6 @@ server/pb_data/
 server/pb_data_dev/
 server/.dev/
 server/pb_public/
+
+# Local screenshots (scratch, not versioned)
+.screenshots/

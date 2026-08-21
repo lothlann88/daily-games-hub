@@ -8,6 +8,9 @@ Built with React Native Web / Expo (static export) and a **PocketBase** backend
 that serves both the API and the built web app from one container, following
 the same pattern as Grey Tide.
 
+Planned work — bugs, improvements and features — is tracked in
+[ROADMAP.md](ROADMAP.md).
+
 ## Architecture
 
 - **Local-first**: screens read AsyncStorage (`lib/storage.ts`); `lib/sync.ts`
