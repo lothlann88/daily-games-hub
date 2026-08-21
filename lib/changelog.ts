@@ -10,6 +10,13 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: "1.8.3",
+    date: "2026-08-21",
+    entries: [
+      "Importing a backup now checks the file before loading it, so a corrupted or wrong-format file is rejected with a clear message instead of scrambling your games and scores.",
+    ],
+  },
+  {
     version: "1.8.2",
     date: "2026-08-21",
     entries: [
