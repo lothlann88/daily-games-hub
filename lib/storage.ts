@@ -16,6 +16,14 @@ export const KEYS = {
   ONBOARDING_COMPLETE: "onboardingComplete",
 };
 
+// Remove every app-owned key from local storage. Called on explicit sign-out
+// so a second account signing in on the same browser cannot inherit — and
+// then sync up — the previous user's games, scores and profile. Only ever
+// call this on a deliberate sign-out, never on a transient auth failure.
+export async function clearAllLocalData(): Promise<void> {
+  await AsyncStorage.multiRemove(Object.values(KEYS));
+}
+
 // Games: merge in any new default games so all users see them
 export async function getGames(): Promise<Game[]> {
   try {

@@ -10,6 +10,15 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: "1.8.2",
+    date: "2026-08-21",
+    entries: [
+      "Fixed buttons that did nothing on the web app: removing a friend now asks you to confirm, importing a backup lets you choose Merge or Replace, and adding a game shows why it wasn't saved instead of failing silently.",
+      "Success and error messages now appear as an on-screen banner, so you get feedback when something works or goes wrong.",
+      "Signing out now clears this device's local copy of your games and scores, so if someone else signs in on the same browser your data no longer carries over into their account.",
+    ],
+  },
+  {
     version: "1.8.1",
     date: "2026-08-16",
     entries: [

@@ -5,7 +5,6 @@ import {
   ScrollView,
   Pressable,
   TextInput,
-  Alert,
   ActivityIndicator,
 } from "react-native";
 import { useRouter } from "expo-router";
@@ -51,6 +50,7 @@ export default function AddGameScreen() {
   };
   const [icon, setIcon] = useState("🎮");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const tintColor = useThemeColor({}, "tint");
@@ -66,19 +66,21 @@ export default function AddGameScreen() {
   };
 
   const handleSubmit = async () => {
+    setError(null);
+
     if (!name.trim()) {
-      Alert.alert("Error", "Please enter a game name");
+      setError("Please enter a game name.");
       return;
     }
 
     if (!url.trim()) {
-      Alert.alert("Error", "Please enter a game URL");
+      setError("Please enter a game URL.");
       return;
     }
 
     // Basic URL validation
     if (!url.startsWith("http://") && !url.startsWith("https://")) {
-      Alert.alert("Error", "URL must start with http:// or https://");
+      setError("URL must start with http:// or https://");
       return;
     }
 
@@ -102,15 +104,12 @@ export default function AddGameScreen() {
 
       await addGame(newGame);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert("Success", "Game added successfully!", [
-        {
-          text: "OK",
-          onPress: () => router.back(),
-        },
-      ]);
-    } catch (error) {
-      console.error("Error adding game:", error);
-      Alert.alert("Error", "Failed to add game");
+      // The new game now shows at the top of the library, which is the
+      // confirmation — return there directly.
+      router.back();
+    } catch (err) {
+      console.error("Error adding game:", err);
+      setError("Failed to add game. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -299,6 +298,12 @@ export default function AddGameScreen() {
           </View>
         </View>
 
+        {error ? (
+          <View style={styles.errorBox}>
+            <ThemedText style={styles.errorText}>{error}</ThemedText>
+          </View>
+        ) : null}
+
         <Pressable
           onPress={handleSubmit}
           disabled={loading}
@@ -437,6 +442,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 18,
     opacity: 0.6,
+  },
+  errorBox: {
+    backgroundColor: "rgba(194, 56, 44, 0.12)",
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  errorText: {
+    color: "#C2382C",
+    fontSize: 14,
+    fontWeight: "600",
   },
   submitButton: {
     paddingVertical: 16,

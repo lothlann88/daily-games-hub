@@ -6,7 +6,6 @@ import {
   RefreshControl,
   Pressable,
   ActivityIndicator,
-  Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -15,6 +14,8 @@ import * as Haptics from "expo-haptics";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { IconSymbol } from "@/components/ui/icon-symbol";
+import { ConfirmDialog } from "@/components/confirm-dialog";
+import { FeedbackBanner, type FeedbackState } from "@/components/feedback-banner";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import * as friendsLib from "@/lib/friends";
 import type { Friend, FriendRequestWithProfile } from "@/types/friends";
@@ -26,6 +27,8 @@ export default function FriendsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [processingRequestId, setProcessingRequestId] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<FeedbackState | null>(null);
+  const [pendingRemoval, setPendingRemoval] = useState<Friend | null>(null);
 
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -55,12 +58,10 @@ export default function FriendsScreen() {
       setOutgoingRequests(outgoingData);
     } catch (error: any) {
       console.error("[Friends] Error loading friends data:", error);
-      console.error("[Friends] Error details:", {
-        message: error?.message,
-        stack: error?.stack,
-        name: error?.name,
+      setFeedback({
+        tone: "error",
+        message: "Couldn't load your friends. Pull down to try again.",
       });
-      Alert.alert("Error", `Failed to load friends data: ${error?.message || "Unknown error"}`);
     } finally {
       console.log("[Friends] Load complete, setting loading to false");
       setLoading(false);
@@ -86,7 +87,7 @@ export default function FriendsScreen() {
       await loadData();
     } catch (error) {
       console.error("Error accepting friend request:", error);
-      Alert.alert("Error", "Failed to accept friend request");
+      setFeedback({ tone: "error", message: "Couldn't accept that request. Please try again." });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
       setProcessingRequestId(null);
@@ -101,7 +102,7 @@ export default function FriendsScreen() {
       await loadData();
     } catch (error) {
       console.error("Error rejecting friend request:", error);
-      Alert.alert("Error", "Failed to reject friend request");
+      setFeedback({ tone: "error", message: "Couldn't reject that request. Please try again." });
     } finally {
       setProcessingRequestId(null);
     }
@@ -115,30 +116,28 @@ export default function FriendsScreen() {
       await loadData();
     } catch (error) {
       console.error("Error canceling friend request:", error);
-      Alert.alert("Error", "Failed to cancel friend request");
+      setFeedback({ tone: "error", message: "Couldn't cancel that request. Please try again." });
     } finally {
       setProcessingRequestId(null);
     }
   };
 
   const handleRemoveFriend = (friend: Friend) => {
-    Alert.alert("Remove Friend", `Remove ${friend.name} from your friends?`, [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Remove",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            await friendsLib.removeFriend(friend.id);
-            await loadData();
-          } catch (error) {
-            console.error("Error removing friend:", error);
-            Alert.alert("Error", "Failed to remove friend");
-          }
-        },
-      },
-    ]);
+    setPendingRemoval(friend);
+  };
+
+  const confirmRemoveFriend = async () => {
+    const friend = pendingRemoval;
+    setPendingRemoval(null);
+    if (!friend) return;
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      await friendsLib.removeFriend(friend.id);
+      await loadData();
+    } catch (error) {
+      console.error("Error removing friend:", error);
+      setFeedback({ tone: "error", message: `Couldn't remove ${friend.name}. Please try again.` });
+    }
   };
 
   const handleAddFriend = () => {
@@ -253,6 +252,24 @@ export default function FriendsScreen() {
 
   return (
     <ThemedView style={styles.container}>
+      <FeedbackBanner
+        feedback={feedback}
+        onDismiss={() => setFeedback(null)}
+        top={Math.max(insets.top, 20) + 8}
+      />
+      <ConfirmDialog
+        visible={pendingRemoval !== null}
+        title="Remove friend"
+        message={
+          pendingRemoval
+            ? `Remove ${pendingRemoval.name} from your friends?`
+            : undefined
+        }
+        confirmLabel="Remove"
+        destructive
+        onConfirm={confirmRemoveFriend}
+        onCancel={() => setPendingRemoval(null)}
+      />
       <FlatList
         data={friends}
         keyExtractor={(item) => item.id}
