@@ -18,8 +18,9 @@ for the stability/security review these items came from.
 Item IDs (H/M/L) match the audit dossier so the two cross-reference. Add new
 items freely under the right heading with a priority and status.
 
-> **Next up:** merge and deploy `fix/high-severity-web-flows` (v1.8.2), which
-> ships the two high-severity fixes below, then verify in the live web app.
+> **Next up:** merge and deploy `fix/high-severity-web-flows` (v1.8.3), which
+> ships the two high-severity fixes plus M1, M4 and M8 below, then verify in
+> the live web app.
 
 ---
 
@@ -40,7 +41,7 @@ items freely under the right heading with a priority and status.
 - [ ] **Enforce or remove `is_private`** — the field exists but no rule reads
       it, so it silently does nothing. `Medium` · ⬜ Planned · M3
 - [ ] **Validate imported backups** — import writes objects verbatim (then
-      syncs them up); validate against a `zod` schema first. `Medium` · ⬜ Planned · M4
+      syncs them up); validate against a `zod` schema first. `Medium` · 🔷 On branch · M4
 - [ ] **Serialise storage writes** — a UI mutation during a sync write can
       interleave and lose data; route writes through one queue. `Medium` · ⬜ Planned · M5
 - [ ] **Surface storage write failures** — saves swallow errors and resolve
@@ -62,12 +63,12 @@ items freely under the right heading with a priority and status.
 - [x] **Off-host backups** — daily backups are copied off-host to Backblaze by
       Unraid. Follow-up: a periodic restore test. `Medium` · ✅ Done
 - [ ] **Bump PocketBase 0.39.10 → 0.39.11** — update `PB_VERSION` + `PB_SHA256`
-      in the Dockerfile. `Medium` · ⬜ Planned · M1
+      in the Dockerfile. `Medium` · 🔷 On branch · M1
 - [ ] **Harden the container** — non-root user, plus `mem_limit`, `pids_limit`
       and log-size caps. `Medium` · ⬜ Planned · M2
 - [ ] **Deploy rollback & stronger freshness guard** — snapshot `pb_data`
       before migrations, tag last-known-good image, roll back on failed health
-      check. `Medium` · ⬜ Planned · M8
+      check. `Medium` · 🔷 On branch · M8
 - [ ] **Service worker: stale-while-revalidate** — hashed assets are cache-first
       with a manual `CACHE_NAME` bump; a missed bump serves stale bundles.
       `Low` · ⬜ Planned · L2
