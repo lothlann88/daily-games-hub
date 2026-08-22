@@ -1,6 +1,6 @@
 {
   "name": "daily-games-hub",
-  "version": "1.8.1",
+  "version": "1.8.3",
   "type": "module",
   "private": true,
   "main": "expo-router/entry",

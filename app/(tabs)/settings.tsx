@@ -5,7 +5,6 @@ import {
   ScrollView,
   Pressable,
   ActivityIndicator,
-  Alert,
   TextInput,
   Modal,
 } from "react-native";
@@ -16,6 +15,7 @@ import Constants from "expo-constants";
 
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
+import { FeedbackBanner, type FeedbackState } from "@/components/feedback-banner";
 import { CHANGELOG } from "@/lib/changelog";
 import { usePreferences, useGames, useScores } from "@/hooks/use-storage";
 import { useThemeColor } from "@/hooks/use-theme-color";
@@ -50,6 +50,9 @@ export default function SettingsScreen() {
   const [isEditingName, setIsEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [feedback, setFeedback] = useState<FeedbackState | null>(null);
 
   useEffect(() => {
     loadUserProfile();
@@ -68,53 +71,40 @@ export default function SettingsScreen() {
       await dataTransfer.exportAndShare();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (error) {
-      Alert.alert("Export Failed", "Failed to export data. Please try again.");
+      setFeedback({ tone: "error", message: "Couldn't export your data. Please try again." });
     }
   };
 
-  const handleImportData = async () => {
-    Alert.alert(
-      "Import Data",
-      "Choose how to import:",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Replace All",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await dataTransfer.pickAndImportData("replace");
-              await refreshGames();
-              await refreshScores();
-              await loadUserProfile();
-              // Push imported records to the cloud straight away; merge sync
-              // would otherwise only pick them up on the next app start.
-              retrySync().catch(() => {});
-              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-              Alert.alert("Success", "Data imported successfully!");
-            } catch (error) {
-              Alert.alert("Import Failed", "Failed to import data. Please check the file format.");
-            }
-          },
-        },
-        {
-          text: "Merge",
-          onPress: async () => {
-            try {
-              await dataTransfer.pickAndImportData("merge");
-              await refreshGames();
-              await refreshScores();
-              await loadUserProfile();
-              retrySync().catch(() => {});
-              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-              Alert.alert("Success", "Data merged successfully!");
-            } catch (error) {
-              Alert.alert("Import Failed", "Failed to import data. Please check the file format.");
-            }
-          },
-        },
-      ]
-    );
+  const handleImportData = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setShowImportModal(true);
+  };
+
+  const runImport = async (mode: "replace" | "merge") => {
+    setImporting(true);
+    try {
+      await dataTransfer.pickAndImportData(mode);
+      await refreshGames();
+      await refreshScores();
+      await loadUserProfile();
+      // Push imported records to the cloud straight away; merge sync would
+      // otherwise only pick them up on the next app start.
+      retrySync().catch(() => {});
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setShowImportModal(false);
+      setFeedback({
+        tone: "success",
+        message: mode === "replace" ? "Data imported." : "Data merged.",
+      });
+    } catch (error) {
+      setShowImportModal(false);
+      setFeedback({
+        tone: "error",
+        message: "Couldn't import that file. Please check it's a valid backup.",
+      });
+    } finally {
+      setImporting(false);
+    }
   };
 
   const handleEditName = () => {
@@ -126,7 +116,7 @@ export default function SettingsScreen() {
   const handleSaveName = async () => {
     const trimmedName = nameDraft.trim();
     if (!trimmedName) {
-      Alert.alert("Invalid Name", "Please enter a name to save.");
+      setFeedback({ tone: "error", message: "Please enter a name to save." });
       return;
     }
 
@@ -156,6 +146,56 @@ export default function SettingsScreen() {
 
   return (
     <ThemedView style={styles.container}>
+      <FeedbackBanner
+        feedback={feedback}
+        onDismiss={() => setFeedback(null)}
+        top={Math.max(insets.top, 20) + 8}
+      />
+
+      {/* Import Data Modal */}
+      <Modal
+        visible={showImportModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowImportModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, { backgroundColor: cardBackground, borderColor }]}>
+            <ThemedText type="subtitle">Import Data</ThemedText>
+            <ThemedText style={styles.infoText}>
+              Replace all wipes your current games and scores and loads the file.
+              Merge keeps what you have and adds anything new from the file.
+            </ThemedText>
+            {importing ? (
+              <ActivityIndicator color={tintColor} style={styles.importSpinner} />
+            ) : (
+              <View style={styles.importActions}>
+                <Pressable
+                  onPress={() => runImport("merge")}
+                  style={[styles.modalButton, { borderColor }]}
+                >
+                  <ThemedText>Merge</ThemedText>
+                </Pressable>
+                <Pressable
+                  onPress={() => runImport("replace")}
+                  style={[styles.modalButtonPrimary, { backgroundColor: "#FF3B30" }]}
+                >
+                  <ThemedText style={styles.modalButtonPrimaryText}>Replace all</ThemedText>
+                </Pressable>
+              </View>
+            )}
+            {!importing && (
+              <Pressable
+                onPress={() => setShowImportModal(false)}
+                style={styles.importCancel}
+              >
+                <ThemedText style={{ color: tintColor }}>Cancel</ThemedText>
+              </Pressable>
+            )}
+          </View>
+        </View>
+      </Modal>
+
       {/* Name Editing Modal */}
       <Modal
         visible={isEditingName}
@@ -225,10 +265,10 @@ export default function SettingsScreen() {
                     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                   } catch (error: any) {
                     console.error("[Settings] Sign out error:", error);
-                    Alert.alert(
-                      "Sign Out Error",
-                      error?.message || "Failed to sign out. Please try again."
-                    );
+                    setFeedback({
+                      tone: "error",
+                      message: "Couldn't sign out. Please try again.",
+                    });
                   }
                 }}
                 style={[styles.modalButtonPrimary, { backgroundColor: "#FF3B30" }]}
@@ -491,6 +531,18 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "flex-end",
     gap: 12,
+  },
+  importActions: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: 12,
+  },
+  importSpinner: {
+    paddingVertical: 12,
+  },
+  importCancel: {
+    alignItems: "center",
+    paddingVertical: 8,
   },
   modalButton: {
     paddingHorizontal: 16,

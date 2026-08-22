@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useRef, useState, ReactNode } fro
 import { useRouter, useSegments } from "expo-router";
 import type { AuthRecord } from "pocketbase";
 import { pb } from "@/lib/pocketbase";
-import { hasCompletedOnboarding } from "@/lib/storage";
+import { hasCompletedOnboarding, clearAllLocalData } from "@/lib/storage";
 import { syncData, clearSyncStatus } from "@/lib/sync";
 import { SyncStatus, SyncError } from "@/types";
 
@@ -197,6 +197,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const signOut = async () => {
     console.log("[Auth] Sign out initiated");
+    // Clear the local library BEFORE dropping the token: on a shared browser
+    // the next account must not inherit and re-upload this user's data.
+    await clearAllLocalData();
     pb.authStore.clear();
     await clearSyncStatus();
     setUser(null);

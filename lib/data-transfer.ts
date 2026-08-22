@@ -4,6 +4,10 @@ import * as Sharing from "expo-sharing";
 import * as DocumentPicker from "expo-document-picker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Game, UserProfile, Score, Preferences } from "@/types";
+import { ExportData, parseExportData } from "@/lib/export-schema";
+
+export type { ExportData };
+export { parseExportData };
 
 const KEYS = {
   GAMES: "games",
@@ -11,15 +15,6 @@ const KEYS = {
   SCORES: "scores",
   PREFERENCES: "preferences",
 };
-
-export interface ExportData {
-  version: string;
-  exportDate: string;
-  games: Game[];
-  userProfile: UserProfile | null;
-  scores: Score[];
-  preferences: Preferences | null;
-}
 
 /**
  * Export all app data to JSON
@@ -96,10 +91,10 @@ export async function exportAndShare(): Promise<void> {
  */
 export async function importData(data: ExportData): Promise<void> {
   try {
-    // Validate data structure
-    if (!data.version || !data.games || !data.scores) {
-      throw new Error("Invalid data format");
-    }
+    // Validate the whole shape before writing anything — a malformed or hostile
+    // file would otherwise be persisted and synced to the cloud verbatim.
+    const validated = parseExportData(data);
+    data = validated;
 
     // Save all data
     await Promise.all([
@@ -162,8 +157,9 @@ export async function pickAndImportData(mode: "replace" | "merge" = "replace"): 
       return;
     }
 
-    // Parse JSON
-    const data: ExportData = JSON.parse(content);
+    // Parse and validate the file before it touches storage — this guards the
+    // merge path too, since mergeImportedData writes verbatim.
+    const data: ExportData = parseExportData(JSON.parse(content));
 
     // Import data
     if (mode === "merge") {
