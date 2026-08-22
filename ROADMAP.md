@@ -18,30 +18,32 @@ for the stability/security review these items came from.
 Item IDs (H/M/L) match the audit dossier so the two cross-reference. Add new
 items freely under the right heading with a priority and status.
 
-> **Next up:** merge and deploy `fix/high-severity-web-flows` (v1.8.3), which
-> ships the two high-severity fixes plus M1, M4 and M8 below, then verify in
-> the live web app.
+> **Next up:** pick up the medium-severity backlog (M3, M5, M6, M7, M9). v1.8.3
+> is deployed and verified live (22 Aug): the two high-severity web fixes plus
+> M1, M4 and M8 are all in production.
 
 ---
 
 ## Bugs & fixes
 
-- [ ] ▶ **Merge & deploy v1.8.2, then verify live** — ships H1 + H2. After
-      deploy: remove a friend, import a backup, add a game with a blank field,
-      then sign out and back in as the other account. `High` · ▶ Next
+- [x] **Merged & deployed v1.8.3, verified live (22 Aug)** — PocketBase 0.39.11
+      running, served bundle hash matches the build, container healthy with no
+      errors, data and backups intact. Still worth a manual pass through the
+      repaired flows in the browser. `High` · ✅ Done
 - [x] **Superuser auth endpoint put behind Cloudflare Access** — Access
       application hostname was a typo (`dailygames` → `dailygame`); corrected
       and re-verified live. `High` · ✅ Done · H0
-- [ ] **Clear local data on sign-out** — stops a second account on a shared
+- [x] **Clear local data on sign-out** — stops a second account on a shared
       browser inheriting and re-uploading the previous user's library.
-      `High` · 🔷 On branch · H1
-- [ ] **Replace web-broken `Alert.alert` flows with inline UI** — remove-friend
+      `High` · ✅ Done · H1
+- [x] **Replace web-broken `Alert.alert` flows with inline UI** — remove-friend
       confirm, data import, and add-game validation were no-ops on web.
-      `High` · 🔷 On branch · H2
+      `High` · ✅ Done · H2
 - [ ] **Enforce or remove `is_private`** — the field exists but no rule reads
       it, so it silently does nothing. `Medium` · ⬜ Planned · M3
-- [ ] **Validate imported backups** — import writes objects verbatim (then
-      syncs them up); validate against a `zod` schema first. `Medium` · 🔷 On branch · M4
+- [x] **Validate imported backups** — imports are now validated against a `zod`
+      schema before anything is written (replace and merge paths), so a bad file
+      is rejected with a clear message. `Medium` · ✅ Done · M4
 - [ ] **Serialise storage writes** — a UI mutation during a sync write can
       interleave and lose data; route writes through one queue. `Medium` · ⬜ Planned · M5
 - [ ] **Surface storage write failures** — saves swallow errors and resolve
@@ -62,13 +64,16 @@ items freely under the right heading with a priority and status.
 
 - [x] **Off-host backups** — daily backups are copied off-host to Backblaze by
       Unraid. Follow-up: a periodic restore test. `Medium` · ✅ Done
-- [ ] **Bump PocketBase 0.39.10 → 0.39.11** — update `PB_VERSION` + `PB_SHA256`
-      in the Dockerfile. `Medium` · 🔷 On branch · M1
+- [x] **Bump PocketBase 0.39.10 → 0.39.11** — `PB_VERSION` + `PB_SHA256` updated
+      (hash checked against upstream checksums); 0.39.11 confirmed running in
+      production. `Medium` · ✅ Done · M1
 - [ ] **Harden the container** — non-root user, plus `mem_limit`, `pids_limit`
       and log-size caps. `Medium` · ⬜ Planned · M2
-- [ ] **Deploy rollback & stronger freshness guard** — snapshot `pb_data`
-      before migrations, tag last-known-good image, roll back on failed health
-      check. `Medium` · 🔷 On branch · M8
+- [x] **Deploy rollback & stronger freshness guard** — deploy now fails on a
+      stale build, tags the last-known-good image before rebuilding, and rolls
+      back to it if the container is unhealthy afterwards. `pb_data` is never
+      touched (snapshotting it was deliberately left out of scope).
+      `Medium` · ✅ Done · M8
 - [ ] **Service worker: stale-while-revalidate** — hashed assets are cache-first
       with a manual `CACHE_NAME` bump; a missed bump serves stale bundles.
       `Low` · ⬜ Planned · L2
