@@ -18,9 +18,8 @@ for the stability/security review these items came from.
 Item IDs (H/M/L) match the audit dossier so the two cross-reference. Add new
 items freely under the right heading with a priority and status.
 
-> **Next up:** deploy v1.9.0 (the activity dashboard, on branch
-> `feat/activity-dashboard`), then pick up the medium-severity backlog
-> (M3, M5, M6, M7, M9). v1.8.3 is live and verified.
+> **Next up:** the medium-severity backlog (M2, M3, M5, M6, M7, M9).
+> v1.9.0 — the activity dashboard — is deployed and verified live (23 Aug).
 
 ---
 
@@ -42,7 +41,7 @@ items freely under the right heading with a priority and status.
 - [x] **Streaks broke when the clocks went forward** — day counting floored a
       23-hour spring-forward gap to zero, so the streak silently reset. Found
       while building the dashboard; fixed with a shared date module.
-      `Medium` · 🔷 On branch
+      `Medium` · ✅ Done
 - [ ] **Enforce or remove `is_private`** — the field exists but no rule reads
       it, so it silently does nothing. `Medium` · ⬜ Planned · M3
 - [x] **Validate imported backups** — imports are now validated against a `zod`
@@ -99,8 +98,8 @@ items freely under the right heading with a priority and status.
 
 - [x] **Swipeable activity dashboard** — the top of the home screen is three
       panels (Activity / Streak / Calendar) you can swipe between, showing the
-      days any game was played, shaded by how many. Built on branch
-      `feat/activity-dashboard` as v1.9.0. `Feature` · 🔷 On branch
+      days any game was played, shaded by how many. Shipped in v1.9.0,
+      deployed and verified live 23 Aug. `Feature` · ✅ Done
 - [ ] **Leaderboard streaks** — the leaderboard reports every streak as 0; wire
       it to the real streak calculation. `Feature` · ⬜ Planned · `lib/friends.ts:340`
 - [ ] **Accept a friend request from search results** — the add-friend search
