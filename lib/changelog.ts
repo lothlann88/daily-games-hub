@@ -10,6 +10,17 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: "1.9.0",
+    date: "2026-08-23",
+    entries: [
+      "The top of the home screen is now a swipeable dashboard. Swipe sideways, or tap Activity, Streak or Calendar, to move between the three views — it remembers whichever one you left it on.",
+      "New Activity view: ten weeks of your whole library at a glance, with darker squares on the days you played more games, alongside your total days played, how many of the last seven you managed, and your current run across any game.",
+      "New Calendar view: the month laid out day by day, shaded the same way, with today ringed.",
+      "The Streak view keeps the longest active streak exactly as it was — and the dashboard now appears even before you have a streak going, so there is something there from your very first day.",
+      "Fixed streaks quietly breaking overnight when the clocks go forward.",
+    ],
+  },
+  {
     version: "1.8.3",
     date: "2026-08-21",
     entries: [

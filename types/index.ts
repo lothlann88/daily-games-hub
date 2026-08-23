@@ -46,6 +46,8 @@ export interface Score {
 export interface Preferences {
   favoriteGameIds: string[];
   librarySortMode?: import("@/lib/library").LibrarySortMode;
+  /** Which dashboard panel the home screen was last left on. */
+  dashboardPanel?: import("@/lib/activity").DashboardPanel;
 }
 
 export type GameCategory =

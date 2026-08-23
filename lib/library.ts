@@ -3,6 +3,9 @@ import type { Game } from "@/types";
 // Pure helpers behind the home-screen library list, extracted so the
 // ordering and filtering rules are unit-testable.
 
+/** A game with today's play state resolved, as the home screen renders it. */
+export type GameWithFlag = Game & { playedToday: boolean };
+
 /** Distinct categories across the library (primary + extra memberships), alphabetical. */
 export function libraryCategories(games: Game[]): string[] {
   const seen = new Set<string>();

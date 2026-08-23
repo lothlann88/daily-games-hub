@@ -15,26 +15,32 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 
 import { GameGlyph } from "@/components/game-glyph";
-import { StreakGrid, buildHistoryDays } from "@/components/streak-grid";
+import { HomeDashboard } from "@/components/home-dashboard";
 import { ThemedView } from "@/components/themed-view";
 import { Colors, Fonts, streakColor, type Palette } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { useGames, usePreferences } from "@/hooks/use-storage";
 import {
+  buildActivitySummary,
+  buildCalendarMonth,
+  type ActivitySummary,
+  type CalendarMonth,
+  type DashboardPanel,
+} from "@/lib/activity";
+import {
   filterAndSortLibrary,
   libraryCategories,
   SORT_MODE_CYCLE,
   SORT_MODE_LABELS,
+  type GameWithFlag,
   type LibrarySortMode,
 } from "@/lib/library";
 import { fetchGameLogo } from "@/lib/logo-fetcher";
 import { wasPlayedToday } from "@/lib/streaks";
-import type { Game } from "@/types";
 
 const SERIF = Fonts!.serif;
 const SANS = Fonts!.sans;
 
-type GameWithFlag = Game & { playedToday: boolean };
 
 type SearchIconProps = { color: string; size?: number };
 function SearchIcon({ color, size = 16 }: SearchIconProps) {
@@ -127,6 +133,25 @@ export default function HomeScreen() {
     [enriched]
   );
 
+  const bestEver = useMemo(
+    () => games.reduce((best, g) => Math.max(best, g.longestStreak), 0),
+    [games]
+  );
+
+  // Recomputed whenever the library changes. These read the clock, so they are
+  // only as fresh as the last refresh — the screen refetches on focus, which is
+  // frequent enough that the grid never looks stale in practice.
+  const activity = useMemo(() => buildActivitySummary(games, 70), [games]);
+  const calendarMonth = useMemo(() => buildCalendarMonth(games), [games]);
+
+  const panel: DashboardPanel = preferences?.dashboardPanel ?? "activity";
+  const handlePanelChange = useCallback(
+    (next: DashboardPanel) => {
+      updatePreferences({ dashboardPanel: next });
+    },
+    [updatePreferences]
+  );
+
   const categories = useMemo(() => libraryCategories(games), [games]);
 
   const sort: LibrarySortMode = preferences?.librarySortMode ?? "smart";
@@ -187,6 +212,11 @@ export default function HomeScreen() {
           <Header
             top={top}
             active={active}
+            activity={activity}
+            calendarMonth={calendarMonth}
+            bestEver={bestEver}
+            panel={panel}
+            onPanelChange={handlePanelChange}
             unplayedToday={unplayedToday}
             filteredCount={filtered.length}
             query={query}
@@ -231,12 +261,17 @@ export default function HomeScreen() {
 }
 
 // ──────────────────────────────────────────────────────────────────────────
-// Header (masthead + streak hero + search + section rule)
+// Header (masthead + dashboard + search + section rule)
 // ──────────────────────────────────────────────────────────────────────────
 
 type HeaderProps = {
   top?: GameWithFlag;
   active: GameWithFlag[];
+  activity: ActivitySummary;
+  calendarMonth: CalendarMonth;
+  bestEver: number;
+  panel: DashboardPanel;
+  onPanelChange: (panel: DashboardPanel) => void;
   unplayedToday: number;
   filteredCount: number;
   query: string;
@@ -254,6 +289,11 @@ type HeaderProps = {
 function Header({
   top,
   active,
+  activity,
+  calendarMonth,
+  bestEver,
+  panel,
+  onPanelChange,
   unplayedToday,
   filteredCount,
   query,
@@ -318,16 +358,19 @@ function Header({
         </Text>
       </View>
 
-      {/* Streak hero card */}
-      {top ? (
-        <StreakHero
-          top={top}
-          others={active.slice(1)}
-          palette={palette}
-          scheme={scheme}
-          onOpenGame={onOpenGame}
-        />
-      ) : null}
+      {/* Dashboard — rendered even with no active streak, unlike the old hero */}
+      <HomeDashboard
+        summary={activity}
+        month={calendarMonth}
+        top={top ?? null}
+        others={active.slice(1)}
+        bestEver={bestEver}
+        panel={panel}
+        onPanelChange={onPanelChange}
+        palette={palette}
+        scheme={scheme}
+        onOpenGame={onOpenGame}
+      />
 
       {/* Search */}
       <View style={styles.searchWrap}>
@@ -430,153 +473,6 @@ function Header({
           </Text>
         </Pressable>
       </View>
-    </View>
-  );
-}
-
-// ──────────────────────────────────────────────────────────────────────────
-// Streak hero card
-// ──────────────────────────────────────────────────────────────────────────
-
-type StreakHeroProps = {
-  top: GameWithFlag;
-  others: GameWithFlag[];
-  palette: Palette;
-  scheme: "light" | "dark";
-  onOpenGame: (id: string) => void;
-};
-
-function StreakHero({
-  top,
-  others,
-  palette,
-  scheme,
-  onOpenGame,
-}: StreakHeroProps) {
-  const history = useMemo(() => buildHistoryDays(top.playHistory, 70), [top.playHistory]);
-  return (
-    <View
-      style={[
-        styles.heroCard,
-        {
-          backgroundColor: palette.surface,
-          borderColor: palette.hairline,
-        },
-      ]}
-    >
-      <Pressable
-        onPress={() => onOpenGame(top.id)}
-        style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
-      >
-        <Text
-          style={[
-            styles.heroEyebrow,
-            { color: palette.tint, fontFamily: SERIF },
-          ]}
-        >
-          — Longest active streak —
-        </Text>
-        <Text
-          style={[
-            styles.heroGameName,
-            { color: palette.text, fontFamily: SERIF },
-          ]}
-        >
-          {top.name}
-        </Text>
-        <Text
-          style={[
-            styles.heroBest,
-            { color: palette.muted, fontFamily: SANS },
-          ]}
-        >
-          Best ever · {top.longestStreak} days
-        </Text>
-
-        <View style={styles.heroNumberRow}>
-          <Text
-            style={[
-              styles.heroNumber,
-              { color: palette.tint, fontFamily: SERIF },
-            ]}
-            allowFontScaling={false}
-          >
-            {top.currentStreak}
-          </Text>
-          <Text
-            style={[
-              styles.heroNumberLabel,
-              { color: palette.muted, fontFamily: SANS },
-            ]}
-          >
-            DAYS RUNNING
-          </Text>
-        </View>
-
-        <StreakGrid
-          history={history}
-          accent={palette.tint}
-          dark={scheme === "dark"}
-          cell={11}
-          gap={3}
-        />
-      </Pressable>
-
-      {others.length > 0 ? (
-        <View
-          style={[
-            styles.heroRibbon,
-            { borderTopColor: palette.hairline },
-          ]}
-        >
-          <Text
-            style={[
-              styles.heroRibbonLabel,
-              { color: palette.muted, fontFamily: SERIF },
-            ]}
-          >
-            and {others.length} more —
-          </Text>
-          <View style={styles.heroChips}>
-            {others.map((g) => {
-              const color = streakColor(g.currentStreak, g.playedToday, palette);
-              return (
-                <Pressable
-                  key={g.id}
-                  onPress={() => onOpenGame(g.id)}
-                  hitSlop={6}
-                  style={({ pressed }) => [
-                    styles.heroChip,
-                    { opacity: pressed ? 0.7 : 1 },
-                  ]}
-                >
-                  <Text
-                    style={{
-                      fontSize: 13,
-                      color: palette.muted,
-                      fontFamily: SANS,
-                    }}
-                  >
-                    {g.name}
-                  </Text>
-                  <Text
-                    style={{
-                      fontFamily: SERIF,
-                      fontSize: 15,
-                      fontWeight: "500",
-                      color,
-                      letterSpacing: -0.2,
-                    }}
-                    allowFontScaling={false}
-                  >
-                    {g.currentStreak}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </View>
-      ) : null}
     </View>
   );
 }
@@ -725,72 +621,6 @@ const styles = StyleSheet.create({
   subhead: {
     fontSize: 14,
     lineHeight: 21,
-  },
-  heroCard: {
-    marginTop: 24,
-    marginHorizontal: 24,
-    paddingTop: 22,
-    paddingHorizontal: 22,
-    paddingBottom: 20,
-    borderRadius: 4,
-    borderWidth: 1,
-  },
-  heroEyebrow: {
-    fontSize: 11,
-    fontStyle: "italic",
-    letterSpacing: 0.3,
-    marginBottom: 4,
-  },
-  heroGameName: {
-    fontSize: 26,
-    fontWeight: "500",
-    letterSpacing: -0.6,
-    lineHeight: 26 * 1.1,
-    marginBottom: 2,
-  },
-  heroBest: {
-    fontSize: 12,
-    marginBottom: 18,
-  },
-  heroNumberRow: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    marginBottom: 18,
-  },
-  heroNumber: {
-    fontSize: 84,
-    fontWeight: "500",
-    letterSpacing: -2.5,
-    lineHeight: 84 * 0.85,
-    includeFontPadding: false,
-  },
-  heroNumberLabel: {
-    fontSize: 11,
-    letterSpacing: 1.2,
-    marginLeft: 10,
-    marginBottom: 6,
-  },
-  heroRibbon: {
-    marginTop: 20,
-    paddingTop: 16,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    // Note: dotted hairline would use borderStyle: 'dotted' but RN's dotted
-    // borders are flaky on Android. The solid hairline reads close enough.
-  },
-  heroRibbonLabel: {
-    fontSize: 11,
-    fontStyle: "italic",
-    marginBottom: 10,
-  },
-  heroChips: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 14,
-  },
-  heroChip: {
-    flexDirection: "row",
-    alignItems: "baseline",
-    gap: 6,
   },
   searchWrap: {
     paddingHorizontal: 24,

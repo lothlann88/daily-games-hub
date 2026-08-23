@@ -1,11 +1,21 @@
 import { View, StyleSheet } from "react-native";
 
+import { buildDayWindow, playCountsByDay } from "@/lib/activity";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import type { Game } from "@/types";
+
+/** Opacity applied to the accent colour at levels 1-3. Index 0 is unused. */
+export const DEFAULT_LEVEL_OPACITY = [0, 0.34, 0.64, 1] as const;
 
 export type StreakGridDay = {
   date: Date;
   played: boolean;
+  /**
+   * Shading bucket 0-3. Omit for a plain played/not-played grid: an omitted
+   * level reads as 3 when played, which renders exactly as it always has.
+   */
+  level?: 0 | 1 | 2 | 3;
 };
 
 export type StreakGridProps = {
@@ -19,6 +29,8 @@ export type StreakGridProps = {
   gap?: number;
   cols?: number;
   rows?: number;
+  /** Per-level opacity ramp for the accent colour. */
+  levelOpacity?: readonly [number, number, number, number];
 };
 
 /**
@@ -35,6 +47,7 @@ export function StreakGrid({
   gap = 4,
   cols = 10,
   rows = 7,
+  levelOpacity = DEFAULT_LEVEL_OPACITY,
 }: StreakGridProps) {
   const scheme = useColorScheme() ?? "light";
   const isDark = dark ?? scheme === "dark";
@@ -52,7 +65,8 @@ export function StreakGrid({
     for (let r = 0; r < rows; r++) {
       const idx = c * rows + r;
       const day = days[idx];
-      const played = !!(day && day.played);
+      // No level given means the caller only cares about played/not-played.
+      const level = day ? (day.level ?? (day.played ? 3 : 0)) : 0;
       cells.push(
         <View
           key={`cell-${c}-${r}`}
@@ -60,7 +74,8 @@ export function StreakGrid({
             width: cell,
             height: cell,
             borderRadius: 3,
-            backgroundColor: played ? playedColor : emptyColor,
+            backgroundColor: level === 0 ? emptyColor : playedColor,
+            opacity: level === 0 ? 1 : levelOpacity[level],
             marginBottom: r === rows - 1 ? 0 : gap,
           }}
         />
@@ -97,21 +112,9 @@ export function buildHistoryDays(
   playHistory: number[],
   days: number
 ): StreakGridDay[] {
-  const startOfDay = (ts: number) => {
-    const d = new Date(ts);
-    d.setHours(0, 0, 0, 0);
-    return d.getTime();
-  };
-
-  const playedDays = new Set(playHistory.map(startOfDay));
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  const out: StreakGridDay[] = [];
-  for (let i = days - 1; i >= 0; i--) {
-    const d = new Date(today);
-    d.setDate(d.getDate() - i);
-    out.push({ date: d, played: playedDays.has(d.getTime()) });
-  }
-  return out;
+  const counts = playCountsByDay([{ playHistory } as Game]);
+  return buildDayWindow(counts, days).map((day) => ({
+    date: new Date(day.date),
+    played: day.count > 0,
+  }));
 }

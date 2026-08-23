@@ -794,5 +794,6 @@ function getDefaultPreferences(): Preferences {
   return {
     favoriteGameIds: [],
     librarySortMode: "smart",
+    dashboardPanel: "activity",
   };
 }

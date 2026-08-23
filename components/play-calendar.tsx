@@ -1,268 +1,175 @@
-import { View, StyleSheet, Pressable } from "react-native";
-import { ThemedText } from "./themed-text";
-import { useThemeColor } from "@/hooks/use-theme-color";
+import { useCallback, useState } from "react";
+import { LayoutChangeEvent, StyleSheet, Text, View } from "react-native";
 
-interface PlayCalendarProps {
-  playHistory: number[]; // Array of timestamps
-  currentStreak: number;
-  longestStreak: number;
-}
+import { panelCard } from "@/components/activity-panel";
+import { DEFAULT_LEVEL_OPACITY } from "@/components/streak-grid";
+import { Fonts, type Palette } from "@/constants/theme";
+import type { CalendarMonth } from "@/lib/activity";
 
-interface CalendarDay {
-  date: Date;
-  isPlayed: boolean;
-  isToday: boolean;
-  isCurrentMonth: boolean;
-}
+const SERIF = Fonts!.serif;
+const SANS = Fonts!.sans;
 
-export function PlayCalendar({ playHistory, currentStreak, longestStreak }: PlayCalendarProps) {
-  const tintColor = useThemeColor({}, "tint");
-  const successColor = useThemeColor({ light: "#10B981", dark: "#34D399" }, "success");
-  const cardBackground = useThemeColor({}, "card");
-  const borderColor = useThemeColor({}, "cardBorder");
-  const textColor = useThemeColor({}, "text");
+const WEEKDAY_INITIALS = ["M", "T", "W", "T", "F", "S", "S"];
+const CELL_GAP = 4;
+const MIN_CELL = 26;
+const MAX_CELL = 38;
 
-  // Get current month and year
-  const today = new Date();
-  const currentMonth = today.getMonth();
-  const currentYear = today.getFullYear();
+export type PlayCalendarProps = {
+  month: CalendarMonth;
+  palette: Palette;
+  levelOpacity?: readonly [number, number, number, number];
+};
 
-  // Get first day of month and number of days
-  const firstDayOfMonth = new Date(currentYear, currentMonth, 1);
-  const lastDayOfMonth = new Date(currentYear, currentMonth + 1, 0);
-  const daysInMonth = lastDayOfMonth.getDate();
-  const startingDayOfWeek = firstDayOfMonth.getDay();
+/**
+ * The current month, day by day, shaded like the activity grid.
+ *
+ * Cell size is clamped rather than a percentage of the width: on a wide desktop
+ * window a square percentage cell would make the grid several hundred pixels
+ * tall and drag the whole dashboard with it.
+ */
+export function PlayCalendar({
+  month,
+  palette,
+  levelOpacity = DEFAULT_LEVEL_OPACITY,
+}: PlayCalendarProps) {
+  const [cell, setCell] = useState(MIN_CELL);
 
-  // Convert play history timestamps to date strings (YYYY-MM-DD)
-  const playedDates = new Set(
-    playHistory.map((timestamp) => {
-      const date = new Date(timestamp);
-      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-    })
-  );
-
-  // Build calendar grid
-  const calendarDays: CalendarDay[] = [];
-
-  // Add empty cells for days before month starts
-  for (let i = 0; i < startingDayOfWeek; i++) {
-    const date = new Date(currentYear, currentMonth, -startingDayOfWeek + i + 1);
-    const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-    calendarDays.push({
-      date,
-      isPlayed: playedDates.has(dateStr),
-      isToday: false,
-      isCurrentMonth: false,
-    });
-  }
-
-  // Add days of current month
-  for (let day = 1; day <= daysInMonth; day++) {
-    const date = new Date(currentYear, currentMonth, day);
-    const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    const isToday =
-      date.getDate() === today.getDate() &&
-      date.getMonth() === today.getMonth() &&
-      date.getFullYear() === today.getFullYear();
-
-    calendarDays.push({
-      date,
-      isPlayed: playedDates.has(dateStr),
-      isToday,
-      isCurrentMonth: true,
-    });
-  }
-
-  // Add remaining cells to complete the grid
-  const remainingCells = 42 - calendarDays.length; // 6 rows × 7 days
-  for (let i = 1; i <= remainingCells; i++) {
-    const date = new Date(currentYear, currentMonth + 1, i);
-    const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-    calendarDays.push({
-      date,
-      isPlayed: playedDates.has(dateStr),
-      isToday: false,
-      isCurrentMonth: false,
-    });
-  }
-
-  const monthNames = [
-    "January", "February", "March", "April", "May", "June",
-    "July", "August", "September", "October", "November", "December"
-  ];
-
-  const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const handleLayout = useCallback((event: LayoutChangeEvent) => {
+    const width = event.nativeEvent.layout.width;
+    if (width <= 0) return;
+    const fitted = Math.floor((width - CELL_GAP * 6) / 7);
+    setCell(Math.max(MIN_CELL, Math.min(MAX_CELL, fitted)));
+  }, []);
 
   return (
-    <View style={styles.container}>
-      {/* Header with month/year */}
-      <View style={styles.header}>
-        <ThemedText type="subtitle">
-          {monthNames[currentMonth]} {currentYear}
-        </ThemedText>
-      </View>
+    <View
+      style={[
+        panelCard.card,
+        { backgroundColor: palette.surface, borderColor: palette.hairline },
+      ]}
+    >
+      <Text style={[panelCard.eyebrow, { color: palette.tint, fontFamily: SERIF }]}>
+        — This month —
+      </Text>
+      <Text style={[styles.monthLabel, { color: palette.text, fontFamily: SERIF }]}>
+        {month.label}
+      </Text>
+      <Text style={[styles.subline, { color: palette.muted, fontFamily: SANS }]}>
+        {month.daysPlayedInMonth === 0
+          ? "Nothing logged this month yet."
+          : `${month.daysPlayedInMonth} ${
+              month.daysPlayedInMonth === 1 ? "day" : "days"
+            } · ${month.playsInMonth} ${month.playsInMonth === 1 ? "play" : "plays"}`}
+      </Text>
 
-      {/* Streak stats */}
-      <View style={styles.statsRow}>
-        <View style={[styles.statBox, { backgroundColor: cardBackground, borderColor }]}>
-          <ThemedText style={styles.statValue}>{currentStreak}</ThemedText>
-          <ThemedText style={styles.statLabel}>Current Streak</ThemedText>
+      <View onLayout={handleLayout}>
+        <View style={[styles.row, { gap: CELL_GAP }]}>
+          {WEEKDAY_INITIALS.map((initial, i) => (
+            <View key={`${initial}-${i}`} style={{ width: cell }}>
+              <Text
+                style={[styles.weekday, { color: palette.muted, fontFamily: SANS }]}
+              >
+                {initial}
+              </Text>
+            </View>
+          ))}
         </View>
-        <View style={[styles.statBox, { backgroundColor: cardBackground, borderColor }]}>
-          <ThemedText style={styles.statValue}>{longestStreak}</ThemedText>
-          <ThemedText style={styles.statLabel}>Longest Streak</ThemedText>
-        </View>
-        <View style={[styles.statBox, { backgroundColor: cardBackground, borderColor }]}>
-          <ThemedText style={styles.statValue}>{playHistory.length}</ThemedText>
-          <ThemedText style={styles.statLabel}>Total Plays</ThemedText>
-        </View>
-      </View>
 
-      {/* Day names header */}
-      <View style={styles.dayNamesRow}>
-        {dayNames.map((day) => (
-          <View key={day} style={styles.dayNameCell}>
-            <ThemedText style={styles.dayNameText}>{day}</ThemedText>
+        {month.weeks.map((week, weekIndex) => (
+          <View
+            key={weekIndex}
+            style={[styles.row, { gap: CELL_GAP, marginTop: CELL_GAP }]}
+          >
+            {week.map((day) => {
+              const filled = day.level > 0;
+              return (
+                <View
+                  key={day.date}
+                  style={[
+                    styles.cell,
+                    {
+                      width: cell,
+                      height: cell,
+                      borderColor: day.isToday ? palette.tint : "transparent",
+                      borderWidth: day.isToday ? 1.5 : 0,
+                    },
+                    // Neighbouring months' padding days sit back a little.
+                    !day.inMonth && styles.outOfMonth,
+                    day.isFuture && !day.isToday && styles.future,
+                  ]}
+                >
+                  {/* The shading is its own layer: opacity is inherited by
+                      children, so fading the cell itself would take the day
+                      number with it. */}
+                  <View
+                    style={[
+                      StyleSheet.absoluteFill,
+                      styles.fill,
+                      {
+                        backgroundColor: filled ? palette.tint : palette.faint,
+                        opacity: filled ? levelOpacity[day.level] : 1,
+                      },
+                    ]}
+                  />
+                  <Text
+                    style={[
+                      styles.dayNumber,
+                      {
+                        color: day.level >= 2 ? palette.surface : palette.text,
+                        fontFamily: SANS,
+                      },
+                    ]}
+                    allowFontScaling={false}
+                  >
+                    {day.dayOfMonth}
+                  </Text>
+                </View>
+              );
+            })}
           </View>
         ))}
-      </View>
-
-      {/* Calendar grid */}
-      <View style={styles.calendarGrid}>
-        {calendarDays.map((day, index) => {
-          let backgroundColor = "transparent";
-          let opacity = 1;
-
-          if (day.isPlayed) {
-            backgroundColor = successColor;
-            opacity = day.isCurrentMonth ? 1 : 0.3;
-          }
-
-          if (day.isToday) {
-            backgroundColor = tintColor;
-            opacity = 1;
-          }
-
-          return (
-            <View
-              key={index}
-              style={[
-                styles.dayCell,
-                {
-                  backgroundColor,
-                  opacity: day.isCurrentMonth ? opacity : 0.3,
-                },
-              ]}
-            >
-              <ThemedText
-                style={[
-                  styles.dayText,
-                  {
-                    color: day.isPlayed || day.isToday ? "#FFFFFF" : textColor,
-                    fontWeight: day.isToday ? "700" : "400",
-                  },
-                ]}
-              >
-                {day.date.getDate()}
-              </ThemedText>
-            </View>
-          );
-        })}
-      </View>
-
-      {/* Legend */}
-      <View style={styles.legend}>
-        <View style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: successColor }]} />
-          <ThemedText style={styles.legendText}>Played</ThemedText>
-        </View>
-        <View style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: tintColor }]} />
-          <ThemedText style={styles.legendText}>Today</ThemedText>
-        </View>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    gap: 16,
+  monthLabel: {
+    fontSize: 22,
+    fontWeight: "500",
+    letterSpacing: -0.4,
+    marginBottom: 2,
   },
-  header: {
-    alignItems: "center",
-  },
-  statsRow: {
-    flexDirection: "row",
-    gap: 8,
-  },
-  statBox: {
-    flex: 1,
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    alignItems: "center",
-    gap: 4,
-  },
-  statValue: {
-    fontSize: 24,
-    fontWeight: "700",
-    lineHeight: 32,
-  },
-  statLabel: {
+  subline: {
     fontSize: 12,
-    lineHeight: 16,
-    opacity: 0.6,
+    marginBottom: 16,
+  },
+  row: {
+    flexDirection: "row",
+    justifyContent: "center",
+  },
+  weekday: {
+    fontSize: 10,
+    letterSpacing: 0.8,
     textAlign: "center",
+    marginBottom: 2,
   },
-  dayNamesRow: {
-    flexDirection: "row",
-    marginTop: 8,
-  },
-  dayNameCell: {
-    flex: 1,
+  cell: {
+    borderRadius: 3,
     alignItems: "center",
-    paddingVertical: 8,
-  },
-  dayNameText: {
-    fontSize: 12,
-    fontWeight: "600",
-    opacity: 0.6,
-  },
-  calendarGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 4,
-  },
-  dayCell: {
-    width: "13.28%", // (100% - 6 gaps) / 7 days
-    aspectRatio: 1,
     justifyContent: "center",
-    alignItems: "center",
-    borderRadius: 8,
+    overflow: "hidden",
   },
-  dayText: {
-    fontSize: 14,
-    lineHeight: 20,
+  fill: {
+    borderRadius: 3,
   },
-  legend: {
-    flexDirection: "row",
-    justifyContent: "center",
-    gap: 24,
-    marginTop: 8,
+  outOfMonth: {
+    opacity: 0.35,
   },
-  legendItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
+  future: {
+    opacity: 0.5,
   },
-  legendDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-  },
-  legendText: {
-    fontSize: 14,
-    lineHeight: 20,
+  dayNumber: {
+    fontSize: 11,
   },
 });

@@ -21,6 +21,7 @@ import { useColorScheme } from "@/hooks/use-color-scheme";
 import { useGames, useScores } from "@/hooks/use-storage";
 import { getFriendLeaderboard } from "@/lib/friends";
 import { syncGamesToCloud, syncScoresToCloud } from "@/lib/sync";
+import { daysBetween } from "@/lib/dates";
 import { updateGameStreaks, wasPlayedToday } from "@/lib/streaks";
 import type { Score, ScoreOrder } from "@/types";
 import type { FriendLeaderboardEntry } from "@/types/friends";
@@ -901,12 +902,7 @@ export default function GameDetailScreen() {
 }
 
 function ledgerLabel(date: Date): string {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const that = new Date(date);
-  that.setHours(0, 0, 0, 0);
-  const dayMs = 24 * 60 * 60 * 1000;
-  const diff = Math.round((today.getTime() - that.getTime()) / dayMs);
+  const diff = daysBetween(date.getTime(), Date.now());
   if (diff === 0) return "Today";
   if (diff === 1) return "Yesterday";
   const dow = DOW[date.getDay()];
