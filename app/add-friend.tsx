@@ -6,7 +6,6 @@ import {
   FlatList,
   Pressable,
   ActivityIndicator,
-  Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -16,13 +15,16 @@ import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useThemeColor } from "@/hooks/use-theme-color";
+import { FeedbackBanner, type FeedbackState } from "@/components/feedback-banner";
 import * as friendsLib from "@/lib/friends";
+import { normaliseUsernameQuery } from "@/lib/username";
 import type { SearchResult } from "@/types/friends";
 
 export default function AddFriendScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searching, setSearching] = useState(false);
+  const [feedback, setFeedback] = useState<FeedbackState | null>(null);
   const [sendingRequestTo, setSendingRequestTo] = useState<string | null>(null);
 
   const insets = useSafeAreaInsets();
@@ -36,61 +38,20 @@ export default function AddFriendScreen() {
   const handleSearch = async (query: string) => {
     setSearchQuery(query);
 
-    if (query.trim().length < 2) {
+    // searchUsers handles a leading @ itself; below three characters it can
+    // never be a username, so don't bother the server.
+    if (!normaliseUsernameQuery(query)) {
       setSearchResults([]);
       return;
     }
 
     try {
       setSearching(true);
-      
-      // Check if query starts with @ for username search
-      const isUsernameSearch = query.trim().startsWith("@");
-      const searchTerm = isUsernameSearch ? query.trim().substring(1) : query.trim();
-      
-      if (isUsernameSearch && searchTerm.length > 0) {
-        // Exact username lookup
-        const { pb, currentUserId } = await import("@/lib/pocketbase");
-        const me = currentUserId();
-        if (!me) {
-          setSearchResults([]);
-          return;
-        }
-
-        const found = await pb.collection("users").getList(1, 1, {
-          filter: pb.filter("username = {:u} && id != {:me}", {
-            u: searchTerm.toLowerCase(),
-            me,
-          }),
-        });
-
-        const userWithStatus = await Promise.all(
-          found.items.map(async (user: any) => {
-            const isFriend = await friendsLib.checkAreFriends(user.id);
-            const requestStatus = await friendsLib.checkPendingRequest(user.id);
-
-            return {
-              id: user.id,
-              name: user.name,
-              username: user.username || undefined,
-              avatar_url: user.avatar_url || undefined,
-              is_private: user.is_private ?? false,
-              is_friend: isFriend,
-              has_pending_request: requestStatus.has_request,
-              request_direction: requestStatus.direction,
-            };
-          })
-        );
-
-        setSearchResults(userWithStatus);
-      } else {
-        // Regular name-based search
-        const results = await friendsLib.searchUsers(searchTerm);
-        setSearchResults(results);
-      }
+      const results = await friendsLib.searchUsers(query);
+      setSearchResults(results);
     } catch (error) {
       console.error("Error searching users:", error);
-      Alert.alert("Error", "Failed to search users");
+      setFeedback({ tone: "error", message: "Couldn't search just now. Please try again." });
     } finally {
       setSearching(false);
     }
@@ -106,10 +67,10 @@ export default function AddFriendScreen() {
       // Refresh search results to update button states
       await handleSearch(searchQuery);
 
-      Alert.alert("Success", "Friend request sent!");
+      setFeedback({ tone: "success", message: "Friend request sent." });
     } catch (error: any) {
       console.error("Error sending friend request:", error);
-      Alert.alert("Error", error.message || "Failed to send friend request");
+      setFeedback({ tone: "error", message: "Couldn't send that request. Please try again." });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
       setSendingRequestTo(null);
@@ -132,7 +93,7 @@ export default function AddFriendScreen() {
     const handleButtonPress = async () => {
       if (item.has_pending_request && item.request_direction === "received") {
         // TODO: Accept the request
-        Alert.alert("Info", "Please go to Friends tab to accept this request");
+        setFeedback({ tone: "success", message: "Accept this request from the Friends tab." });
       } else if (!item.is_friend && !item.has_pending_request) {
         await handleSendRequest(item.id);
       }
@@ -184,6 +145,11 @@ export default function AddFriendScreen() {
 
   return (
     <ThemedView style={styles.container}>
+      <FeedbackBanner
+        feedback={feedback}
+        onDismiss={() => setFeedback(null)}
+        top={Math.max(insets.top, 20) + 8}
+      />
       {/* Header */}
       <View
         style={[
@@ -215,7 +181,7 @@ export default function AddFriendScreen() {
           <IconSymbol name="magnifyingglass" size={20} color={tintColor} />
           <TextInput
             style={[styles.searchInput, { color: useThemeColor({}, "text") }]}
-            placeholder="Search by name or @username..."
+            placeholder="Enter their exact username"
             placeholderTextColor={useThemeColor({ light: "#9CA3AF", dark: "#6B7280" }, "icon")}
             value={searchQuery}
             onChangeText={handleSearch}
@@ -231,7 +197,7 @@ export default function AddFriendScreen() {
           )}
         </View>
         <ThemedText style={styles.searchHint}>
-          Search by name or use @username for instant lookup
+          You need their exact username — accounts are not searchable by name.
         </ThemedText>
       </View>
 
@@ -242,18 +208,18 @@ export default function AddFriendScreen() {
         renderItem={renderSearchResult}
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={
-          searchQuery.trim().length >= 2 && !searching ? (
+          normaliseUsernameQuery(searchQuery) && !searching ? (
             <View style={styles.emptyContainer}>
-              <ThemedText style={styles.emptyText}>No users found</ThemedText>
+              <ThemedText style={styles.emptyText}>No account with that username</ThemedText>
               <ThemedText style={styles.emptySubtext}>
-                Try searching with a different name or username
+                Check the spelling — usernames have to match exactly.
               </ThemedText>
             </View>
-          ) : searchQuery.trim().length < 2 ? (
+          ) : !normaliseUsernameQuery(searchQuery) ? (
             <View style={styles.emptyContainer}>
-              <ThemedText style={styles.emptyText}>Start typing to search</ThemedText>
+              <ThemedText style={styles.emptyText}>Find someone by username</ThemedText>
               <ThemedText style={styles.emptySubtext}>
-                Enter at least 2 characters to find friends
+                Type their username exactly — at least 3 characters.
               </ThemedText>
             </View>
           ) : null

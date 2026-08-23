@@ -32,6 +32,10 @@ Planned work — bugs, improvements and features — is tracked in
 - **Friends visibility**: games and scores are readable by their owner and the
   owner's friends (API rule), which is what powers the head-to-head section in
   game detail.
+- **Account discovery**: `users.listRule` is self-only, so the account list
+  cannot be browsed. People are found by exact username through
+  `GET /api/dgh/users/lookup`. Set a username in Settings, or friends cannot
+  find you.
 
 ## Development
 

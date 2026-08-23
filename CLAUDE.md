@@ -40,6 +40,13 @@ invariants and gotchas that are not obvious from the code.
 - **Friend visibility rule** on games/scores (`@collection.friendships` join)
   is what powers head-to-head. Repeated `@collection.friendships` refs in one
   rule share a single join — that sharing is load-bearing.
+- **`users.listRule` is self-only**; discovery goes through
+  `GET /api/dgh/users/lookup` (exact username). `users.viewRule` allows self,
+  friends and pending-request counterparties — and it is what **`expand`**
+  resolves against, so `lib/friends.ts` reading friends' profiles depends on
+  it. Tighten it and the Friends tab and head-to-head go *silently empty*
+  (`getFriends` filters out rows whose expand is missing). Test expand after
+  any change to it.
 
 ## PocketBase gotchas (this repo hit all of these)
 

@@ -9,6 +9,7 @@ import { ThemedView } from "@/components/themed-view";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { useUserProfile } from "@/hooks/use-storage";
 import { setOnboardingComplete } from "@/lib/storage";
+import { validateUsername } from "@/lib/username";
 import { UserProfile } from "@/types";
 
 export default function OnboardingScreen() {
@@ -34,28 +35,28 @@ export default function OnboardingScreen() {
 
     // Validate username if provided
     if (username.trim()) {
-      const usernameValue = username.trim().toLowerCase();
-      if (!/^[a-z0-9_]{3,20}$/.test(usernameValue)) {
-        setUsernameError("Username must be 3-20 characters (letters, numbers, underscores only)");
+      const problem = validateUsername(username);
+      if (problem) {
+        setUsernameError(problem);
         return;
       }
+      const usernameValue = username.trim().toLowerCase();
 
-      // Check username availability
+      // Check availability. A failure here must block rather than fall
+      // through: the unique index would reject the save anyway, and the
+      // person would see a generic "could not create your profile" instead.
       try {
-        const { pb, currentUserId } = await import("@/lib/pocketbase");
-        const existing = await pb.collection("users").getList(1, 1, {
-          filter: pb.filter("username = {:u} && id != {:me}", {
-            u: usernameValue,
-            me: currentUserId() ?? "",
-          }),
-        });
-
-        if (existing.totalItems > 0) {
+        const { currentUserId } = await import("@/lib/pocketbase");
+        const { lookupUsername } = await import("@/lib/friends");
+        const taken = await lookupUsername(usernameValue);
+        if (taken && taken.id !== currentUserId()) {
           setUsernameError("This username is already taken");
           return;
         }
       } catch (error: any) {
         console.error("Error checking username:", error);
+        setUsernameError("Could not check that username. Please try again.");
+        return;
       }
     }
 

@@ -22,6 +22,7 @@ import { useThemeColor } from "@/hooks/use-theme-color";
 import * as dataTransfer from "@/lib/data-transfer";
 import { getUserProfile, updateUserProfile } from "@/lib/storage";
 import { syncUserProfile } from "@/lib/sync";
+import { validateUsername } from "@/lib/username";
 import { UserProfile } from "@/types";
 import { useAuth } from "@/contexts/auth-context";
 import { useThemePreference, type ThemePreference } from "@/contexts/theme-context";
@@ -49,6 +50,9 @@ export default function SettingsScreen() {
   const [profileLoading, setProfileLoading] = useState(true);
   const [isEditingName, setIsEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
+  const [isEditingUsername, setIsEditingUsername] = useState(false);
+  const [usernameDraft, setUsernameDraft] = useState("");
+  const [savingUsername, setSavingUsername] = useState(false);
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -111,6 +115,52 @@ export default function SettingsScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setNameDraft(userProfile?.name || "");
     setIsEditingName(true);
+  };
+
+  const handleEditUsername = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setUsernameDraft(userProfile?.username || "");
+    setIsEditingUsername(true);
+  };
+
+  // A username is the only way a friend can find you now that accounts are not
+  // searchable by name, so it has to be editable after onboarding.
+  const handleSaveUsername = async () => {
+    if (savingUsername) return;
+    const problem = validateUsername(usernameDraft);
+    if (problem) {
+      setFeedback({ tone: "error", message: problem });
+      return;
+    }
+    const cleaned = usernameDraft.trim().replace(/^@+/, "").toLowerCase();
+
+    setSavingUsername(true);
+    try {
+      const { lookupUsername } = await import("@/lib/friends");
+      const { currentUserId } = await import("@/lib/pocketbase");
+      const taken = await lookupUsername(cleaned);
+      if (taken && taken.id !== currentUserId()) {
+        setFeedback({ tone: "error", message: "That username is already taken." });
+        return;
+      }
+
+      await updateUserProfile({ username: cleaned });
+      await loadUserProfile();
+      const updated = await getUserProfile();
+      if (updated) {
+        // Push straight away: the unique index lives server-side, so a clash
+        // only surfaces here.
+        await syncUserProfile(updated);
+      }
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setIsEditingUsername(false);
+      setFeedback({ tone: "success", message: "Username saved." });
+    } catch (error) {
+      console.error("[Settings] Username save failed:", error);
+      setFeedback({ tone: "error", message: "Couldn't save that username. Please try again." });
+    } finally {
+      setSavingUsername(false);
+    }
   };
 
   const handleSaveName = async () => {
@@ -232,6 +282,53 @@ export default function SettingsScreen() {
         </View>
       </Modal>
 
+      {/* Username Modal */}
+      <Modal
+        visible={isEditingUsername}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsEditingUsername(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, { backgroundColor: cardBackground, borderColor }]}>
+            <ThemedText type="subtitle">Your username</ThemedText>
+            <ThemedText style={styles.infoText}>
+              Friends find you by typing this exactly. Letters, numbers and
+              underscores, 3 to 20 characters.
+            </ThemedText>
+            <TextInput
+              value={usernameDraft}
+              onChangeText={setUsernameDraft}
+              placeholder="username"
+              placeholderTextColor={placeholderTextColor}
+              style={[styles.modalInput, { color: textColor, borderColor }]}
+              autoCapitalize="none"
+              autoCorrect={false}
+              autoFocus
+              editable={!savingUsername}
+            />
+            <View style={styles.modalActions}>
+              <Pressable
+                onPress={() => setIsEditingUsername(false)}
+                style={[styles.modalButton, { borderColor }]}
+                disabled={savingUsername}
+              >
+                <ThemedText>Cancel</ThemedText>
+              </Pressable>
+              <Pressable
+                onPress={handleSaveUsername}
+                style={[styles.modalButtonPrimary, { backgroundColor: tintColor }]}
+                disabled={savingUsername}
+              >
+                <ThemedText style={styles.modalButtonPrimaryText}>
+                  {savingUsername ? "Saving..." : "Save"}
+                </ThemedText>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       {/* Sign Out Confirmation Modal */}
       <Modal
         visible={showSignOutConfirm}
@@ -312,6 +409,24 @@ export default function SettingsScreen() {
               <View style={{ flex: 1 }}>
                 <ThemedText type="defaultSemiBold">{userProfile?.name || "User"}</ThemedText>
                 <ThemedText style={styles.settingDescription}>Tap to edit your name</ThemedText>
+              </View>
+            </View>
+            <ThemedText style={styles.settingRowRight}>Edit</ThemedText>
+          </Pressable>
+          <Pressable
+            onPress={handleEditUsername}
+            style={[styles.settingRow, { backgroundColor: cardBackground, borderColor }]}
+          >
+            <View style={styles.settingRowLeft}>
+              <View style={{ flex: 1 }}>
+                <ThemedText type="defaultSemiBold">
+                  {userProfile?.username ? `@${userProfile.username}` : "No username yet"}
+                </ThemedText>
+                <ThemedText style={styles.settingDescription}>
+                  {userProfile?.username
+                    ? "How friends find you"
+                    : "Set one so friends can find you"}
+                </ThemedText>
               </View>
             </View>
             <ThemedText style={styles.settingRowRight}>Edit</ThemedText>

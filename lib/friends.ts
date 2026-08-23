@@ -1,5 +1,6 @@
 import { pb, currentUserId } from "./pocketbase";
 import { beatsScore, compareScoresBestFirst } from "@/lib/score-order";
+import { normaliseUsernameQuery } from "@/lib/username";
 import type { ScoreOrder } from "@/types";
 import type {
   Friend,
@@ -157,7 +158,7 @@ export async function getFriends(): Promise<Friend[]> {
         name: friendProfile.name,
         username: friendProfile.username || undefined,
         avatar_url: friendProfile.avatar_url || undefined,
-        is_private: friendProfile.is_private ?? false,
+        is_private: friendProfile.is_private ?? true,
         friendship_created_at: friendship.created,
       };
     });
@@ -178,39 +179,67 @@ export async function removeFriend(friendId: string): Promise<void> {
   await pb.collection("friendships").delete(friendship.id);
 }
 
+/** The five fields GET /api/dgh/users/lookup returns. */
+export interface LookupProfile {
+  id: string;
+  name: string;
+  username: string;
+  avatar_url: string;
+  is_private: boolean;
+}
+
 /**
- * Search for users by name or username
+ * Look someone up by their exact username.
+ *
+ * Nobody can browse the account list any more, so this endpoint is the only
+ * way to find a person. Returns null when there is no such username.
+ */
+export async function lookupUsername(username: string): Promise<LookupProfile | null> {
+  const cleaned = normaliseUsernameQuery(username);
+  if (!cleaned) return null;
+
+  try {
+    return (await pb.send("/api/dgh/users/lookup", {
+      method: "GET",
+      username: cleaned,
+    })) as LookupProfile;
+  } catch (error: any) {
+    // 404 is the ordinary "no such username" answer, not a failure.
+    if (error?.status === 404 || error?.status === 400) return null;
+    throw error;
+  }
+}
+
+/**
+ * Find someone to add as a friend. Exact username only — searching by name
+ * would mean listing accounts, which is no longer permitted.
+ *
+ * Returns at most one result, in an array so callers keep their list shape.
  */
 export async function searchUsers(query: string): Promise<SearchResult[]> {
   const userId = currentUserId();
   if (!userId) return [];
 
-  const trimmed = query.trim();
-  if (trimmed.length < 2) return [];
+  const profile = await lookupUsername(query);
+  if (!profile || profile.id === userId) return [];
 
-  // pb.filter() escapes the parameters, so no manual sanitising is needed
-  const result = await pb.collection("users").getList(1, 20, {
-    filter: pb.filter("id != {:me} && (name ~ {:q} || username ~ {:q})", {
-      me: userId,
-      q: trimmed,
-    }),
-  });
+  const [isFriend, requestStatus] = await Promise.all([
+    checkAreFriends(profile.id),
+    checkPendingRequest(profile.id),
+  ]);
 
-  // Check friendship and request status for each result
-  return Promise.all(
-    result.items.map(async (record: any) => {
-      const isFriend = await checkAreFriends(record.id);
-      const requestStatus = await checkPendingRequest(record.id);
-
-      return {
-        ...profileFromRecord(record),
-        is_private: record.is_private ?? false,
-        is_friend: isFriend,
-        has_pending_request: requestStatus.has_request,
-        request_direction: requestStatus.direction,
-      };
-    }),
-  );
+  return [
+    {
+      id: profile.id,
+      name: profile.name,
+      username: profile.username || undefined,
+      avatar_url: profile.avatar_url || undefined,
+      is_private: profile.is_private ?? true,
+      is_friend: isFriend,
+      has_pending_request: requestStatus.has_request,
+      request_direction: requestStatus.direction,
+    },
+  ];
 }
 
 /**

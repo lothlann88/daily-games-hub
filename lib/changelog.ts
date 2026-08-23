@@ -10,6 +10,15 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: "1.11.0",
+    date: "2026-08-23",
+    entries: [
+      "Finding friends now works by exact username only. Nobody can browse the list of accounts any more \u2014 someone can only find you if you have told them your username.",
+      "You can set or change your username in Settings, under Your Profile. It is now the only way a friend can find you, so it is worth having one.",
+      "Adding a friend tells you what happened instead of silently doing nothing \u2014 the confirmations and errors on that screen never appeared on the web app before.",
+    ],
+  },
+  {
     version: "1.10.0",
     date: "2026-08-23",
     entries: [

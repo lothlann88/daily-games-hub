@@ -80,6 +80,46 @@ routerAdd('POST', '/api/dgh/signup', (e) => {
   return e.json(200, { ok: true })
 })
 
+// --- 1c. Look a person up by their exact username ---------------------------
+// users.listRule is self-only, so nobody can browse the account list. This is
+// the one way to find someone, and it needs their exact username.
+//
+// The response names its five fields explicitly rather than returning the
+// record: a list response would leak any field added to users later, which is
+// the whole reason this is an endpoint rather than a collection rule.
+routerAdd(
+  'GET',
+  '/api/dgh/users/lookup',
+  (e) => {
+    const raw = String(e.requestInfo().query.username || '')
+      .trim()
+      .toLowerCase()
+    // Same shape the username field itself enforces.
+    if (!/^[a-z0-9_]{3,20}$/.test(raw)) {
+      throw new BadRequestError('That is not a valid username.')
+    }
+
+    let user = null
+    try {
+      user = e.app.findFirstRecordByFilter('users', 'username = {:u}', { u: raw })
+    } catch (_) {
+      // no such username
+    }
+    if (!user) {
+      throw new NotFoundError('No account with that username.')
+    }
+
+    return e.json(200, {
+      id: user.id,
+      name: user.getString('name'),
+      username: user.getString('username'),
+      avatar_url: user.getString('avatar_url'),
+      is_private: user.getBool('is_private'),
+    })
+  },
+  $apis.requireAuth('users'),
+)
+
 // --- 2. Removing a friendship removes its mirror row ------------------------
 // Replaces the old remove_friendship() RPC: the client deletes one row and the
 // (friend, user) mirror goes with it. app.delete() here does not re-trigger
