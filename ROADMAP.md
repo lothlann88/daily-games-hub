@@ -18,8 +18,9 @@ for the stability/security review these items came from.
 Item IDs (H/M/L) match the audit dossier so the two cross-reference. Add new
 items freely under the right heading with a priority and status.
 
-> **Next up:** the medium-severity backlog (M2, M3, M5, M6, M7, M9).
-> v1.9.0 — the activity dashboard — is deployed and verified live (23 Aug).
+> **Next up:** the remaining medium-severity backlog (M2, M6, M7, M9).
+> v1.11.0 is deployed and verified live (23 Aug): invite-code sign-up,
+> exact-username discovery, and the storage-write serialisation.
 
 ---
 
@@ -42,13 +43,16 @@ items freely under the right heading with a priority and status.
       23-hour spring-forward gap to zero, so the streak silently reset. Found
       while building the dashboard; fixed with a shared date module.
       `Medium` · ✅ Done
-- [ ] **Enforce or remove `is_private`** — the field exists but no rule reads
-      it, so it silently does nothing. `Medium` · ⬜ Planned · M3
+- [x] **Account list is no longer browsable** — `users.listRule` is self-only
+      and people are found by exact username through `GET /api/dgh/users/lookup`.
+      Note `is_private` is still read by no rule; it no longer affects who can
+      find you, because nobody can browse at all. `Medium` · ✅ Done · M3
 - [x] **Validate imported backups** — imports are now validated against a `zod`
       schema before anything is written (replace and merge paths), so a bad file
       is rejected with a clear message. `Medium` · ✅ Done · M4
-- [ ] **Serialise storage writes** — a UI mutation during a sync write can
-      interleave and lose data; route writes through one queue. `Medium` · ⬜ Planned · M5
+- [x] **Serialise storage writes** — every read-modify-write now goes through a
+      single queue, so a play logged during a sync is no longer overwritten.
+      `Medium` · ✅ Done · M5
 - [ ] **Surface storage write failures** — saves swallow errors and resolve
       successfully, so a quota failure looks like a save. `Medium` · ⬜ Planned · M6
 - [ ] **Make friendship hooks transactional** — the paired row writes aren't in
@@ -77,6 +81,11 @@ items freely under the right heading with a priority and status.
       back to it if the container is unhealthy afterwards. `pb_data` is never
       touched (snapshotting it was deliberately left out of scope).
       `Medium` · ✅ Done · M8
+- [ ] **`sw.js` is edge-cached for 4 hours** — Cloudflare serves the old service
+      worker after a deploy (`cf-cache-status: HIT`, `max-age=14400`), so a
+      `CACHE_NAME` bump takes hours to reach anyone. Navigation is network-first
+      so the app itself updates, but the worker lags. Needs a cache rule or a
+      short max-age on `/sw.js`. `Low` · ⬜ Planned
 - [ ] **Service worker: stale-while-revalidate** — hashed assets are cache-first
       with a manual `CACHE_NAME` bump; a missed bump serves stale bundles.
       `Low` · ⬜ Planned · L2
@@ -95,6 +104,10 @@ items freely under the right heading with a priority and status.
       per-IP rate limiting can't be defeated if exposure widens. `Low` · ⬜ Planned · L8
 
 ## Features & ideas
+
+- [x] **Invite-code sign-up** — people can create their own account with a code
+      from the `invites` collection, gated server-side through
+      `POST /api/dgh/signup`. `Feature` · ✅ Done
 
 - [x] **Swipeable activity dashboard** — the top of the home screen is three
       panels (Activity / Streak / Calendar) you can swipe between, showing the
