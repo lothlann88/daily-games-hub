@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { View, StyleSheet, TextInput, Pressable, Alert, KeyboardAvoidingView, Platform } from "react-native";
+import { View, StyleSheet, TextInput, Pressable, KeyboardAvoidingView, Platform } from "react-native";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
@@ -16,6 +16,8 @@ export default function OnboardingScreen() {
   const [username, setUsername] = useState("");
   const [loading, setLoading] = useState(false);
   const [usernameError, setUsernameError] = useState("");
+  // Rendered inline: RN-web's Alert.alert is a no-op, so alerts never show on web
+  const [formError, setFormError] = useState<string | null>(null);
   const { saveProfile } = useUserProfile();
   const router = useRouter();
   
@@ -25,9 +27,10 @@ export default function OnboardingScreen() {
 
   const handleContinue = async () => {
     if (!name.trim()) {
-      Alert.alert("Name Required", "Please enter your name to continue");
+      setFormError("Please enter your name to continue.");
       return;
     }
+    setFormError(null);
 
     // Validate username if provided
     if (username.trim()) {
@@ -77,7 +80,7 @@ export default function OnboardingScreen() {
       router.replace("/(tabs)");
     } catch (error) {
       console.error("Error saving profile:", error);
-      Alert.alert("Error", "Failed to create profile. Please try again.");
+      setFormError("Could not create your profile. Please try again.");
       setLoading(false);
     }
   };
@@ -153,6 +156,10 @@ export default function OnboardingScreen() {
             )}
           </View>
         </View>
+
+        {formError ? (
+          <ThemedText style={styles.formError}>{formError}</ThemedText>
+        ) : null}
 
         <Pressable
           onPress={handleContinue}
@@ -233,6 +240,13 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     opacity: 0.6,
     marginTop: 8,
+  },
+  formError: {
+    color: "#DC2626",
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: "center",
+    marginBottom: 16,
   },
   errorText: {
     fontSize: 14,

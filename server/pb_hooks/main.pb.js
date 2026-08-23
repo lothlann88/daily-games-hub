@@ -36,6 +36,50 @@ onRecordUpdateRequest((e) => {
   }
 }, 'friend_requests')
 
+// --- 1b. Invite-gated sign-up ----------------------------------------------
+// users.createRule stays null, so POST /api/collections/users/records is
+// refused and so is a create smuggled through /api/batch (batch enforces
+// collection rules but dispatches through its own handler map, which route
+// rate limits do not cover). This endpoint is therefore the only way to make
+// an account — and if this hook ever fails to load, sign-up simply stops
+// working rather than falling open.
+routerAdd('POST', '/api/dgh/signup', (e) => {
+  const { normaliseInviteCode, createInvitedUser } = require(`${__hooks}/utils.js`)
+
+  // Binding to a fixed shape is the field-injection defence: anything else in
+  // the body (username, verified, emailVisibility, id) is simply never read.
+  const body = new DynamicModel({
+    email: '',
+    password: '',
+    passwordConfirm: '',
+    code: '',
+  })
+  e.bindBody(body)
+
+  const email = String(body.email || '').trim().toLowerCase()
+  const password = String(body.password || '')
+  const code = normaliseInviteCode(body.code)
+
+  if (email.indexOf('@') < 1) {
+    throw new BadRequestError('Please enter a valid email address.')
+  }
+  if (password.length < 8) {
+    throw new BadRequestError('Please choose a password of at least 8 characters.')
+  }
+  if (password !== String(body.passwordConfirm || '')) {
+    throw new BadRequestError('The two passwords do not match.')
+  }
+  if (!code) {
+    throw new BadRequestError('Please enter your invite code.')
+  }
+
+  createInvitedUser(e.app, email, password, code)
+
+  // No token in the response: the client signs in through the ordinary
+  // authWithPassword path, so there is one sign-in route rather than two.
+  return e.json(200, { ok: true })
+})
+
 // --- 2. Removing a friendship removes its mirror row ------------------------
 // Replaces the old remove_friendship() RPC: the client deletes one row and the
 // (friend, user) mirror goes with it. app.delete() here does not re-trigger

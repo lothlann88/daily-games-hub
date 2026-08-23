@@ -53,8 +53,19 @@ invariants and gotchas that are not obvious from the code.
   container mounts `pb_migrations` read-only by design.
 - `pb.authStore.record` returns a fresh object on every access — cache the
   snapshot (see `contexts/auth-context.tsx`) or `useSyncExternalStore` loops.
-- Registration is closed and OAuth2 pinned off; PB would auto-create users on
-  OAuth2 sign-in, bypassing `createRule: null`.
+- Registration is invite-gated through `POST /api/dgh/signup` (a `routerAdd`
+  hook), **not** by opening `users.createRule` — it stays `null` on purpose.
+  The batch API dispatches through its own handler map, so a route rate limit
+  would not cover a create smuggled into `/api/batch`; a null createRule
+  refuses both. It also fails closed: if the hook stops loading, sign-up simply
+  stops rather than falling open. OAuth2 stays pinned off for the same reason —
+  PB auto-creates users on OAuth2 sign-in, bypassing `createRule`.
+- The `invites` collection has every rule `null` (superuser-only); the hook
+  reaches it via `runInTransaction`, which bypasses rules. Never give it a read
+  rule — that would publish the codes.
+- New accounts are created with `verified: false` and there is no SMTP, so
+  **never** set a `users.authRule` requiring verified accounts: nobody could
+  ever verify and everyone would be locked out.
 
 ## Web-only platform notes
 

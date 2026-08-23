@@ -18,9 +18,10 @@ import { Image } from "expo-image";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { useThemeColor } from "@/hooks/use-theme-color";
+import { normaliseInviteCode, validateSignupInput } from "@/lib/invite";
 import { pb } from "@/lib/pocketbase";
 
-// Debounce utility to prevent rapid clicks
+// Matches the login screen's guard against rapid double-taps.
 function createDebouncer(delayMs: number) {
   let isBlocked = false;
 
@@ -38,13 +39,15 @@ function createDebouncer(delayMs: number) {
   };
 }
 
-export default function LoginScreen() {
+export default function SignUpScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [passwordConfirm, setPasswordConfirm] = useState("");
+  const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
   // Rendered inline: RN-web's Alert.alert is a no-op, so alerts never show on web
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const loginDebouncer = useRef(createDebouncer(1000));
+  const submitDebouncer = useRef(createDebouncer(1000));
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const tintColor = useThemeColor({}, "tint");
@@ -53,42 +56,55 @@ export default function LoginScreen() {
   const inputBackground = useThemeColor({ light: "#FFFFFF", dark: "#2C2C2E" }, "background");
   const textColor = useThemeColor({}, "text");
 
-  const handleLogin = async () => {
-    // Debounce check - prevent rapid clicks
-    const canProceed = loginDebouncer.current(() => {});
+  const handleSignUp = async () => {
+    const canProceed = submitDebouncer.current(() => {});
     if (!canProceed || loading) return;
 
-    if (!email.trim() || !password.trim()) {
-      setErrorMessage("Please enter both email and password.");
+    const problem = validateSignupInput({ email, password, passwordConfirm, code });
+    if (problem) {
+      setErrorMessage(problem);
       return;
     }
 
     setErrorMessage(null);
     setLoading(true);
+
     try {
-      console.log("[Login] Signing in...");
-      await pb.collection("users").authWithPassword(email.trim(), password);
+      // Sign-up runs through a dedicated endpoint rather than a record create:
+      // the users collection stays closed, so this is the only way in.
+      await pb.send("/api/dgh/signup", {
+        method: "POST",
+        body: {
+          email: email.trim().toLowerCase(),
+          password,
+          passwordConfirm,
+          code: normaliseInviteCode(code),
+        },
+      });
 
-      console.log("[Login] Login successful:", pb.authStore.record?.id);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-
-      // Explicitly navigate to home screen after successful login
-      // Don't rely solely on auth state listener which may not fire
+      // Sign in on the ordinary path so there is one well-tested route in.
+      await pb.collection("users").authWithPassword(email.trim().toLowerCase(), password);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      // The auth context sees a signed-in user on an auth screen and sends it
+      // to onboarding, because a new account has no name yet.
       router.replace("/(tabs)");
     } catch (error: any) {
-      console.error("[Login] Login error:", error);
-
-      let message = "Unable to sign in. Please try again.";
-      if (error?.status === 400) {
-        message = "Invalid email or password. Sign in with your email address, not your username.";
-      } else if (error?.status === 429) {
-        message = "Too many login attempts. Please wait a moment and try again.";
-      } else if (error?.status === 0) {
-        message = "Could not reach the server. Please check your connection and try again.";
+      const status = error?.status;
+      if (status === 400) {
+        // The server's messages are already written for the person reading them.
+        setErrorMessage(
+          error?.response?.message || "Could not create your account. Please check your details."
+        );
+      } else if (status === 404) {
+        setErrorMessage("Sign-up is not available on this server.");
+      } else if (status === 429) {
+        setErrorMessage("Too many attempts. Please wait a few minutes and try again.");
+      } else if (status === 0) {
+        setErrorMessage("Could not reach the server. Check your connection and try again.");
+      } else {
+        setErrorMessage("Something went wrong creating your account. Please try again.");
       }
-
-      setErrorMessage(message);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
     } finally {
       setLoading(false);
     }
@@ -97,8 +113,8 @@ export default function LoginScreen() {
   return (
     <ThemedView style={styles.container}>
       <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.keyboardView}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <ScrollView
           contentContainerStyle={[
@@ -108,9 +124,8 @@ export default function LoginScreen() {
               paddingBottom: Math.max(insets.bottom, 20),
             },
           ]}
-          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
-          {/* Logo and Branding */}
           <View style={styles.branding}>
             <Image
               source={require("@/assets/images/icon.png")}
@@ -120,22 +135,18 @@ export default function LoginScreen() {
             <ThemedText type="title" style={styles.appTitle}>
               Daily Games Hub
             </ThemedText>
-            <ThemedText style={styles.byline}>
-              by Serhan Handani
-            </ThemedText>
+            <ThemedText style={styles.byline}>by Serhan Handani</ThemedText>
           </View>
 
-          {/* Header */}
           <View style={styles.header}>
             <ThemedText type="subtitle" style={styles.title}>
-              Welcome Back
+              Create your account
             </ThemedText>
             <ThemedText style={styles.subtitle}>
-              Sign in to sync your games across devices
+              You will need the invite code you were given.
             </ThemedText>
           </View>
 
-          {/* Login Form */}
           <View style={[styles.form, { backgroundColor: cardBackground, borderColor }]}>
             <View style={styles.formGroup}>
               <ThemedText style={styles.label}>Email</ThemedText>
@@ -143,11 +154,11 @@ export default function LoginScreen() {
                 style={[styles.input, { backgroundColor: inputBackground, borderColor, color: textColor }]}
                 value={email}
                 onChangeText={setEmail}
-                placeholder="your@email.com"
+                placeholder="you@example.com"
                 placeholderTextColor="#999"
-                keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
+                keyboardType="email-address"
                 editable={!loading}
               />
             </View>
@@ -158,52 +169,80 @@ export default function LoginScreen() {
                 style={[styles.input, { backgroundColor: inputBackground, borderColor, color: textColor }]}
                 value={password}
                 onChangeText={setPassword}
-                placeholder="••••••••"
+                placeholder="At least 8 characters"
                 placeholderTextColor="#999"
                 secureTextEntry
                 autoCapitalize="none"
-                autoCorrect={false}
                 editable={!loading}
               />
             </View>
 
-            {errorMessage && (
+            <View style={styles.formGroup}>
+              <ThemedText style={styles.label}>Confirm password</ThemedText>
+              <TextInput
+                style={[styles.input, { backgroundColor: inputBackground, borderColor, color: textColor }]}
+                value={passwordConfirm}
+                onChangeText={setPasswordConfirm}
+                placeholder="Type it again"
+                placeholderTextColor="#999"
+                secureTextEntry
+                autoCapitalize="none"
+                editable={!loading}
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <ThemedText style={styles.label}>Invite code</ThemedText>
+              <TextInput
+                style={[styles.input, { backgroundColor: inputBackground, borderColor, color: textColor }]}
+                value={code}
+                onChangeText={setCode}
+                placeholder="e.g. 7F3K2QB9XA4M"
+                placeholderTextColor="#999"
+                autoCapitalize="characters"
+                autoCorrect={false}
+                editable={!loading}
+                onSubmitEditing={handleSignUp}
+              />
+              <ThemedText style={styles.hint}>
+                Spaces and dashes do not matter.
+              </ThemedText>
+            </View>
+
+            {errorMessage ? (
               <ThemedText style={styles.errorText}>{errorMessage}</ThemedText>
-            )}
+            ) : null}
 
             <Pressable
-              onPress={handleLogin}
-              disabled={loading}
               style={[
-                styles.loginButton,
+                styles.submitButton,
                 { backgroundColor: tintColor },
                 loading && styles.buttonDisabled,
               ]}
+              onPress={handleSignUp}
+              disabled={loading}
             >
               {loading ? (
                 <View style={styles.loadingContainer}>
                   <ActivityIndicator color="#fff" />
-                  <ThemedText style={styles.loadingText}>Signing in...</ThemedText>
+                  <ThemedText style={styles.loadingText}>Creating account...</ThemedText>
                 </View>
               ) : (
-                <ThemedText style={styles.loginButtonText}>Sign In</ThemedText>
+                <ThemedText style={styles.submitButtonText}>Create account</ThemedText>
               )}
             </Pressable>
           </View>
 
-          <View style={styles.signupContainer}>
+          <View style={styles.footer}>
             <Pressable
-              onPress={() => router.push("/auth/signup" as any)}
+              onPress={() => router.replace("/auth/login" as any)}
               hitSlop={8}
               disabled={loading}
             >
-              <ThemedText style={[styles.signupLink, { color: tintColor }]}>
-                New here? Create an account
+              <ThemedText style={[styles.footerLink, { color: tintColor }]}>
+                Already have an account? Sign in
               </ThemedText>
             </Pressable>
-            <ThemedText style={styles.signupText}>
-              Forgotten your password? Ask Serhan.
-            </ThemedText>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -277,6 +316,12 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     marginBottom: 8,
   },
+  hint: {
+    fontSize: 12,
+    lineHeight: 16,
+    opacity: 0.6,
+    marginTop: 6,
+  },
   input: {
     borderWidth: 1,
     borderRadius: 12,
@@ -284,14 +329,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 24,
   },
-  loginButton: {
+  submitButton: {
     borderRadius: 12,
     padding: 16,
     alignItems: "center",
     justifyContent: "center",
     minHeight: 52,
   },
-  loginButtonText: {
+  submitButtonText: {
     color: "#fff",
     fontSize: 16,
     fontWeight: "600",
@@ -309,20 +354,15 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
   },
-  signupContainer: {
+  footer: {
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 32,
-    gap: 10,
+    gap: 8,
   },
-  signupLink: {
+  footerLink: {
     fontSize: 14,
     fontWeight: "600",
-    textAlign: "center",
-  },
-  signupText: {
-    fontSize: 14,
-    opacity: 0.6,
     textAlign: "center",
   },
 });

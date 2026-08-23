@@ -24,8 +24,11 @@ Planned work — bugs, improvements and features — is tracked in
   backups (03:00, keep 7) are versioned in `server/pb_migrations/`. Friend
   request/removal invariants live in `server/pb_hooks/` (both bidirectional
   friendship rows are created and removed server-side).
-- **Closed registration**: accounts are created by the admin in the PocketBase
-  dashboard. There is no self-serve sign-up or password reset.
+- **Invite-gated registration**: sign-up needs a code from the `invites`
+  collection and goes through `POST /api/dgh/signup`. `users.createRule` stays
+  `null`, so that endpoint is the only way in — a direct record create, or one
+  smuggled through `/api/batch`, is refused. There is no self-serve password
+  reset (no SMTP); the admin resets passwords in the dashboard.
 - **Friends visibility**: games and scores are readable by their owner and the
   owner's friends (API rule), which is what powers the head-to-head section in
   game detail.
@@ -77,6 +80,13 @@ Accounts on the live instance: create the superuser with
 `docker exec dailygame /pb/pocketbase superuser upsert <email> <pw> --dir /pb/pb_data`,
 then add the two app users in the dashboard (reached over the tailnet).
 Password resets are done there too.
+
+To let someone sign up, add a row to `invites` in the dashboard: a `code`
+(upper-case letters and digits, 8-64 chars — generate one with
+`openssl rand -hex 8` rather than picking a memorable phrase, since the rate
+limit assumes a high-entropy code), `max_uses`, and tick `active`. New rows are
+inactive until you tick it. Codes can be expired (`expires_at`) or revoked by
+unticking `active`, and `last_used_by` records who used one.
 
 Backups run nightly inside `pb_data/backups` (restorable from the dashboard);
 `pb_data` itself still needs an external copy for off-machine safety.

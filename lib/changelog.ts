@@ -10,6 +10,15 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: "1.10.0",
+    date: "2026-08-23",
+    entries: [
+      "You can now create your own account. Tap \u201cNew here? Create an account\u201d on the sign-in screen and enter the invite code you were given \u2014 spaces and dashes in the code do not matter.",
+      "Forgotten passwords are still sorted out by Serhan: there is no email on this server, so there are no reset emails.",
+      "Fixed messages that never appeared when setting up your profile \u2014 if you left your name blank, the screen simply did nothing. It now tells you.",
+    ],
+  },
+  {
     version: "1.9.1",
     date: "2026-08-23",
     entries: [
