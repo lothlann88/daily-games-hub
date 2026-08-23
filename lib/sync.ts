@@ -3,6 +3,7 @@ import { pb, currentUserId } from "./pocketbase";
 import { Game, Score, UserProfile, SyncError } from "@/types";
 import { mergeLibraries } from "@/lib/merge";
 import { KEYS, setOnboardingComplete } from "@/lib/storage";
+import { withStorageLock } from "@/lib/storage-lock";
 
 const SYNC_STATUS_KEY = "@daily_games_sync_status";
 
@@ -340,32 +341,40 @@ export async function performFullSync(): Promise<void> {
   try {
     console.log("[Sync] Starting merge sync...");
 
-    // Read local raw (not via getGames(), whose default-merge side effects
-    // shouldn't run mid-sync).
-    const [gamesData, scoresData] = await Promise.all([
-      AsyncStorage.getItem(KEYS.GAMES),
-      AsyncStorage.getItem(KEYS.SCORES),
-    ]);
-    const localGames: Game[] = gamesData ? JSON.parse(gamesData) : [];
-    const localScores: Score[] = scoresData ? JSON.parse(scoresData) : [];
-
+    // Fetch the cloud side first, outside the storage lock — it is the slow
+    // part, and holding the lock across it would block every local write for
+    // the length of the request.
     const [cloudGames, cloudScores, cloudProfile] = await Promise.all([
       fetchGamesFromCloud(),
       fetchScoresFromCloud(),
       fetchUserProfileFromCloud(),
     ]);
 
-    const merged = mergeLibraries(
-      { games: localGames, scores: localScores },
-      { games: cloudGames, scores: cloudScores },
-    );
+    // Re-read local inside the lock and merge there, so a play logged while
+    // the fetch was in flight is merged in rather than overwritten.
+    const merged = await withStorageLock(async () => {
+      // Read raw, not via getGames(), whose default-merge side effects
+      // shouldn't run mid-sync.
+      const [gamesData, scoresData] = await Promise.all([
+        AsyncStorage.getItem(KEYS.GAMES),
+        AsyncStorage.getItem(KEYS.SCORES),
+      ]);
+      const localGames: Game[] = gamesData ? JSON.parse(gamesData) : [];
+      const localScores: Score[] = scoresData ? JSON.parse(scoresData) : [];
 
-    await AsyncStorage.setItem(KEYS.GAMES, JSON.stringify(merged.games));
-    await AsyncStorage.setItem(KEYS.SCORES, JSON.stringify(merged.scores));
-    // Profile stays cloud-wins on download; renames push at write time.
-    if (cloudProfile) {
-      await AsyncStorage.setItem(KEYS.USER_PROFILE, JSON.stringify(cloudProfile));
-    }
+      const result = mergeLibraries(
+        { games: localGames, scores: localScores },
+        { games: cloudGames, scores: cloudScores },
+      );
+
+      await AsyncStorage.setItem(KEYS.GAMES, JSON.stringify(result.games));
+      await AsyncStorage.setItem(KEYS.SCORES, JSON.stringify(result.scores));
+      // Profile stays cloud-wins on download; renames push at write time.
+      if (cloudProfile) {
+        await AsyncStorage.setItem(KEYS.USER_PROFILE, JSON.stringify(cloudProfile));
+      }
+      return result;
+    });
 
     if (merged.scoresToPush.length > 0) {
       await syncScoresToCloud(merged.scoresToPush);
@@ -446,7 +455,9 @@ async function doSyncData(): Promise<SyncResult> {
         const cloudProfile = await fetchUserProfileFromCloud().catch(() => null);
         if (cloudProfile?.name) {
           console.log("[Sync] Existing account detected, adopting cloud profile...");
-          await AsyncStorage.setItem(KEYS.USER_PROFILE, JSON.stringify(cloudProfile));
+          await withStorageLock(async () => {
+            await AsyncStorage.setItem(KEYS.USER_PROFILE, JSON.stringify(cloudProfile));
+          });
           await setOnboardingComplete();
           await updateSyncStatus({ hasInitialSync: true });
           await performFullSync();

@@ -4,6 +4,7 @@ import {
   GAME_REVISIONS_VERSION,
   SCORE_ORDER_SEEDS,
 } from "@/lib/game-revisions";
+import { withStorageLock } from "@/lib/storage-lock";
 import { Game, UserProfile, Score, Preferences } from "@/types";
 
 export const KEYS = {
@@ -21,11 +22,21 @@ export const KEYS = {
 // then sync up — the previous user's games, scores and profile. Only ever
 // call this on a deliberate sign-out, never on a transient auth failure.
 export async function clearAllLocalData(): Promise<void> {
-  await AsyncStorage.multiRemove(Object.values(KEYS));
+  await withStorageLock(async () => {
+    await AsyncStorage.multiRemove(Object.values(KEYS));
+  });
 }
 
-// Games: merge in any new default games so all users see them
+// Games: merge in any new default games so all users see them.
+//
+// This is a read that can write (revisions, seeding new defaults), so it runs
+// inside the storage lock like the mutators do. `loadGames` is the unlocked
+// body, for callers that already hold the lock.
 export async function getGames(): Promise<Game[]> {
+  return withStorageLock(loadGames);
+}
+
+async function loadGames(): Promise<Game[]> {
   try {
     const data = await AsyncStorage.getItem(KEYS.GAMES);
     let storedGames: Game[] = data ? JSON.parse(data) : [];
@@ -92,6 +103,10 @@ export async function getGames(): Promise<Game[]> {
   }
 }
 
+// The raw writers below deliberately do NOT take the storage lock: they are
+// the primitives the locked read-modify-write paths call, so locking them
+// would deadlock against the caller already holding it. Each writes a whole
+// value rather than modifying one, so it cannot lose its own update.
 export async function saveGames(games: Game[]): Promise<void> {
   try {
     await AsyncStorage.setItem(KEYS.GAMES, JSON.stringify(games));
@@ -101,13 +116,20 @@ export async function saveGames(games: Game[]): Promise<void> {
 }
 
 export async function addGame(game: Game): Promise<void> {
-  const games = await getGames();
-  games.push({ ...game, updatedAt: Date.now() });
-  await saveGames(games);
+  await withStorageLock(async () => {
+    const games = await loadGames();
+    games.push({ ...game, updatedAt: Date.now() });
+    await saveGames(games);
+  });
 }
 
 export async function updateGame(gameId: string, updates: Partial<Game>): Promise<void> {
-  const games = await getGames();
+  await withStorageLock(() => updateGameUnlocked(gameId, updates));
+}
+
+/** Caller must hold the storage lock. */
+async function updateGameUnlocked(gameId: string, updates: Partial<Game>): Promise<void> {
+  const games = await loadGames();
   const index = games.findIndex((g) => g.id === gameId);
   if (index !== -1) {
     games[index] = { ...games[index], ...updates, updatedAt: Date.now() };
@@ -116,9 +138,11 @@ export async function updateGame(gameId: string, updates: Partial<Game>): Promis
 }
 
 export async function deleteGame(gameId: string): Promise<void> {
-  const games = await getGames();
-  const filtered = games.filter((g) => g.id !== gameId);
-  await saveGames(filtered);
+  await withStorageLock(async () => {
+    const games = await loadGames();
+    const filtered = games.filter((g) => g.id !== gameId);
+    await saveGames(filtered);
+  });
 }
 
 // User Profile
@@ -141,11 +165,12 @@ export async function saveUserProfile(profile: UserProfile): Promise<void> {
 }
 
 export async function updateUserProfile(updates: Partial<UserProfile>): Promise<void> {
-  const profile = await getUserProfile();
-  if (profile) {
-    const updated = { ...profile, ...updates };
-    await saveUserProfile(updated);
-  }
+  await withStorageLock(async () => {
+    const profile = await getUserProfile();
+    if (profile) {
+      await saveUserProfile({ ...profile, ...updates });
+    }
+  });
 }
 
 // Onboarding
@@ -193,12 +218,22 @@ export async function saveScores(scores: Score[]): Promise<void> {
 }
 
 export async function addScore(score: Score): Promise<void> {
+  // Scores and the owning game move together, so both writes happen under one
+  // acquisition — a writer slipping between them would see a play recorded
+  // with the game's streak not yet updated.
+  await withStorageLock(async () => {
+    await addScoreUnlocked(score);
+  });
+}
+
+/** Caller must hold the storage lock. */
+async function addScoreUnlocked(score: Score): Promise<void> {
   const scores = await getRawScores();
   scores.push(score);
   await saveScores(scores);
-  
+
   // Update game's lastPlayed timestamp and streaks
-  const games = await getGames();
+  const games = await loadGames();
   const game = games.find((g) => g.id === score.gameId);
   if (game) {
     const updatedHistory = [...game.playHistory, score.datePlayed];
@@ -212,7 +247,7 @@ export async function addScore(score: Score): Promise<void> {
       game.longestStreak
     );
     
-    await updateGame(score.gameId, {
+    await updateGameUnlocked(score.gameId, {
       lastPlayed: score.datePlayed,
       playHistory: updatedHistory,
       currentStreak,
@@ -234,12 +269,14 @@ export async function updateScore(
   scoreId: string,
   updates: Pick<Partial<Score>, "result" | "score" | "notes">
 ): Promise<Score | null> {
-  const scores = await getRawScores();
-  const index = scores.findIndex((s) => s.id === scoreId && !s.deleted);
-  if (index === -1) return null;
-  scores[index] = { ...scores[index], ...updates, updatedAt: Date.now() };
-  await saveScores(scores);
-  return scores[index];
+  return withStorageLock(async () => {
+    const scores = await getRawScores();
+    const index = scores.findIndex((s) => s.id === scoreId && !s.deleted);
+    if (index === -1) return null;
+    scores[index] = { ...scores[index], ...updates, updatedAt: Date.now() };
+    await saveScores(scores);
+    return scores[index];
+  });
 }
 
 /**
@@ -250,6 +287,13 @@ export async function updateScore(
 export async function deleteScore(
   scoreId: string
 ): Promise<{ score: Score; game: Game | null } | null> {
+  return withStorageLock(() => deleteScoreUnlocked(scoreId));
+}
+
+/** Caller must hold the storage lock. */
+async function deleteScoreUnlocked(
+  scoreId: string
+): Promise<{ score: Score; game: Game | null } | null> {
   const scores = await getRawScores();
   const index = scores.findIndex((s) => s.id === scoreId && !s.deleted);
   if (index === -1) return null;
@@ -257,13 +301,13 @@ export async function deleteScore(
   scores[index] = tombstone;
   await saveScores(scores);
 
-  const games = await getGames();
+  const games = await loadGames();
   const game = games.find((g) => g.id === tombstone.gameId);
   if (!game) return { score: tombstone, game: null };
 
   const { calculateCurrentStreak, calculateLongestStreak } = await import("./streaks");
   const playHistory = game.playHistory.filter((ts) => ts !== tombstone.datePlayed);
-  await updateGame(game.id, {
+  await updateGameUnlocked(game.id, {
     playHistory,
     lastPlayed: playHistory.length > 0 ? Math.max(...playHistory) : undefined,
     currentStreak: calculateCurrentStreak(playHistory),
@@ -271,7 +315,7 @@ export async function deleteScore(
     // copy may keep an inflated best-ever until both sides converge.
     longestStreak: calculateLongestStreak(playHistory),
   });
-  const updatedGames = await getGames();
+  const updatedGames = await loadGames();
   return { score: tombstone, game: updatedGames.find((g) => g.id === game.id) ?? null };
 }
 
@@ -286,6 +330,22 @@ export async function getPreferences(): Promise<Preferences> {
     console.error("Error loading preferences:", error);
     return getDefaultPreferences();
   }
+}
+
+/**
+ * Merge a patch into the stored preferences. Reads inside the lock so two
+ * quick changes (say a sort switch and a dashboard swipe) can't each write
+ * from the same stale snapshot.
+ */
+export async function updatePreferences(
+  updates: Partial<Preferences>
+): Promise<Preferences> {
+  return withStorageLock(async () => {
+    const current = await getPreferences();
+    const merged = { ...current, ...updates };
+    await savePreferences(merged);
+    return merged;
+  });
 }
 
 export async function savePreferences(preferences: Preferences): Promise<void> {

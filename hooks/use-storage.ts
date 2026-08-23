@@ -125,12 +125,13 @@ export function usePreferences() {
     loadPreferences();
   }, [loadPreferences]);
 
+  // Merges inside the storage lock rather than over this hook's snapshot, so
+  // two quick changes (a sort switch and a dashboard swipe, say) can't each
+  // write from the same stale copy and lose one of them.
   const updatePreferences = useCallback(async (updates: Partial<Preferences>) => {
-    if (!preferences) return;
-    const updated = { ...preferences, ...updates };
-    await storage.savePreferences(updated);
-    setPreferences(updated);
-  }, [preferences]);
+    const merged = await storage.updatePreferences(updates);
+    setPreferences(merged);
+  }, []);
 
   return { preferences, loading, updatePreferences, refresh: loadPreferences };
 }

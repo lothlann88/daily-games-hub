@@ -5,6 +5,7 @@ import * as DocumentPicker from "expo-document-picker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Game, UserProfile, Score, Preferences } from "@/types";
 import { ExportData, parseExportData } from "@/lib/export-schema";
+import { withStorageLock } from "@/lib/storage-lock";
 
 export type { ExportData };
 export { parseExportData };
@@ -96,17 +97,21 @@ export async function importData(data: ExportData): Promise<void> {
     const validated = parseExportData(data);
     data = validated;
 
-    // Save all data
-    await Promise.all([
-      AsyncStorage.setItem(KEYS.GAMES, JSON.stringify(data.games)),
-      data.userProfile
-        ? AsyncStorage.setItem(KEYS.USER_PROFILE, JSON.stringify(data.userProfile))
-        : Promise.resolve(),
-      AsyncStorage.setItem(KEYS.SCORES, JSON.stringify(data.scores)),
-      data.preferences
-        ? AsyncStorage.setItem(KEYS.PREFERENCES, JSON.stringify(data.preferences))
-        : Promise.resolve(),
-    ]);
+    // One acquisition for the whole import: a half-applied import — games
+    // replaced but scores not — is worse than either outcome on its own.
+    const payload = data;
+    await withStorageLock(async () => {
+      await Promise.all([
+        AsyncStorage.setItem(KEYS.GAMES, JSON.stringify(payload.games)),
+        payload.userProfile
+          ? AsyncStorage.setItem(KEYS.USER_PROFILE, JSON.stringify(payload.userProfile))
+          : Promise.resolve(),
+        AsyncStorage.setItem(KEYS.SCORES, JSON.stringify(payload.scores)),
+        payload.preferences
+          ? AsyncStorage.setItem(KEYS.PREFERENCES, JSON.stringify(payload.preferences))
+          : Promise.resolve(),
+      ]);
+    });
   } catch (error) {
     console.error("Error importing data:", error);
     throw new Error("Failed to import data");
@@ -178,6 +183,10 @@ export async function pickAndImportData(mode: "replace" | "merge" = "replace"): 
  */
 export async function mergeImportedData(data: ExportData): Promise<void> {
   try {
+    // Read, merge and write under one acquisition — this is a
+    // read-modify-write over four keys, and anything landing in the middle
+    // would be dropped by the write that follows.
+    await withStorageLock(async () => {
     // Get existing data
     const [existingGames, existingScores, existingProfile, existingPreferences] = await Promise.all([
       AsyncStorage.getItem(KEYS.GAMES),
@@ -232,6 +241,7 @@ export async function mergeImportedData(data: ExportData): Promise<void> {
     }
 
     await Promise.all(writes);
+    });
   } catch (error) {
     console.error("Error merging data:", error);
     throw new Error("Failed to merge imported data");

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'daily-games-hub-v3';
+const CACHE_NAME = 'daily-games-hub-v4';
 const PRECACHE_URLS = [
   '/',
   '/index.html',

@@ -10,6 +10,13 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: "1.9.1",
+    date: "2026-08-23",
+    entries: [
+      "Fixed a rare case where a score or a change to a game could go missing — if you logged a play at the same moment the app was syncing, or made two changes in quick succession, one of them could quietly overwrite the other. Changes to your library are now applied one at a time.",
+    ],
+  },
+  {
     version: "1.9.0",
     date: "2026-08-23",
     entries: [
