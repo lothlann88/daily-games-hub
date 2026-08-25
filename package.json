@@ -7,9 +7,9 @@
   "scripts": {
     "dev": "expo start --web",
     "build:web": "expo export --platform web",
-    "build": "pnpm build:web && rm -rf server/pb_public && cp -r dist server/pb_public",
+    "build": "expo export --platform web && rm -rf server/pb_public && cp -r dist server/pb_public && ../.claude/scripts/emit-version-json.sh server/pb_public/version.json",
     "check": "tsc --noEmit",
-    "lint": "expo lint",
+    "lint": "eslint . --max-warnings 0",
     "format": "prettier --write .",
     "test": "vitest run --passWithNoTests",
     "android": "expo start --android",

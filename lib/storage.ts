@@ -178,7 +178,7 @@ export async function hasCompletedOnboarding(): Promise<boolean> {
   try {
     const data = await AsyncStorage.getItem(KEYS.ONBOARDING_COMPLETE);
     return data === "true";
-  } catch (error) {
+  } catch {
     return false;
   }
 }

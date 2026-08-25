@@ -1,5 +1,7 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { Game, Score } from "@/types";
+
 // An in-memory AsyncStorage with a deliberate delay on every operation. The
 // delay is the point: it widens the window between a read and its matching
 // write, which is exactly where concurrent mutations used to lose each other.
@@ -29,8 +31,6 @@ vi.mock("@react-native-async-storage/async-storage", () => ({
 
 const storage = await import("@/lib/storage");
 const { KEYS } = storage;
-
-import type { Game, Score } from "@/types";
 
 const at = (y: number, m: number, d: number) => new Date(y, m, d, 12).getTime();
 

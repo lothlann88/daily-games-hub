@@ -32,12 +32,10 @@ export function GameCardEnhanced({
 }: GameCardEnhancedProps) {
   const scale = useSharedValue(1);
   const translateX = useSharedValue(0);
-  const tintColor = useThemeColor({}, "tint");
   const cardBackground = useThemeColor({ light: "#FFFFFF", dark: "#1F2937" }, "card");
   const borderColor = useThemeColor({ light: "#E5E7EB", dark: "#374151" }, "cardBorder");
   const shadowColor = useThemeColor({}, "shadow");
   const successColor = useThemeColor({ light: "#10B981", dark: "#34D399" }, "success");
-  const errorColor = useThemeColor({ light: "#EF4444", dark: "#F87171" }, "error");
   const gradient1 = useThemeColor({}, "gradient1");
   const gradient2 = useThemeColor({}, "gradient2");
 

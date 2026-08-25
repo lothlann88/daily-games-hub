@@ -24,7 +24,6 @@ export function GameCardSimple({
 }: GameCardSimpleProps) {
   const cardBackground = useThemeColor({}, "card");
   const borderColor = useThemeColor({}, "cardBorder");
-  const tintColor = useThemeColor({}, "tint");
 
   const handleLongPress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);

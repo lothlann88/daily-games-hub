@@ -88,11 +88,11 @@ export interface StatsComparison {
     average_score: number;
     best_streak: number;
   };
-  shared_games: Array<{
+  shared_games: {
     game_id: string;
     game_name: string;
     user_best: number;
     friend_best: number;
     winner: "user" | "friend" | "tie";
-  }>;
+  }[];
 }

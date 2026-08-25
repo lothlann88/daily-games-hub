@@ -33,7 +33,7 @@ export async function fetchGameLogo(url: string): Promise<string | null> {
  * Fetch logos for multiple games
  */
 export async function fetchLogosForGames(
-  games: Array<{ id: string; url: string; logoUrl?: string }>
+  games: { id: string; url: string; logoUrl?: string }[]
 ): Promise<Map<string, string>> {
   const logoMap = new Map<string, string>();
 

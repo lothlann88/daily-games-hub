@@ -113,7 +113,7 @@ export function PersonalNotes({ gameId }: PersonalNotesProps) {
             <ThemedText style={styles.notesText}>{noteText}</ThemedText>
           ) : (
             <ThemedText style={styles.emptyText}>
-              No notes yet. Tap "Add" to save your strategies, tips, or observations about this
+              No notes yet. Tap &quot;Add&quot; to save your strategies, tips, or observations about this
               game.
             </ThemedText>
           )}

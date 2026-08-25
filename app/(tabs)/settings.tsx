@@ -74,7 +74,7 @@ export default function SettingsScreen() {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       await dataTransfer.exportAndShare();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch (error) {
+    } catch {
       setFeedback({ tone: "error", message: "Couldn't export your data. Please try again." });
     }
   };
@@ -100,7 +100,7 @@ export default function SettingsScreen() {
         tone: "success",
         message: mode === "replace" ? "Data imported." : "Data merged.",
       });
-    } catch (error) {
+    } catch {
       setShowImportModal(false);
       setFeedback({
         tone: "error",

@@ -8,10 +8,16 @@ invariants and gotchas that are not obvious from the code.
 
 ## Toolchain
 
+- Deployment model: **(a) self-hosted on Unraid** (App Playbook §6) behind
+  Cloudflare Tunnel, deployed by `tools/deploy/deploy.sh`.
 - `pnpm` via corepack: plain `pnpm` is not on PATH on this box — use
-  `corepack pnpm <cmd>`.
-- Checks before committing: `corepack pnpm check` (tsc), `lint`, `test`
-  (vitest; `--passWithNoTests` is intentional — the suite is currently empty).
+  `corepack pnpm <cmd>`. That also means package.json scripts must not invoke
+  nested `pnpm` (the root `build` script calls expo directly for this reason).
+- Gate ladder before committing: `corepack pnpm check` (tsc, strict, includes
+  tests) · `lint` (eslint direct with `--max-warnings 0` — `expo lint` does not
+  forward the flag) · `test` (vitest).
+- `corepack pnpm build` exports the web app into `server/pb_public` and stamps
+  `version.json` there (playbook §5) — generated, never hand-edited.
 - Local backend: `server/.dev/pocketbase` (0.39.10, gitignored, version pinned
   in `server/Dockerfile` with SHA256). Dev db `server/pb_data_dev` has test
   users `alice@test.local` / `bob@test.local` (pass12345) and superuser

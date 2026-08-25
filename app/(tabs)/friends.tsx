@@ -33,7 +33,6 @@ export default function FriendsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const tintColor = useThemeColor({}, "tint");
-  const backgroundColor = useThemeColor({}, "background");
   const cardBackground = useThemeColor({}, "card");
   const borderColor = useThemeColor({}, "cardBorder");
 

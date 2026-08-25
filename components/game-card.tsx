@@ -3,7 +3,6 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
-  withTiming,
 } from "react-native-reanimated";
 import { LinearGradient } from "expo-linear-gradient";
 
@@ -20,7 +19,6 @@ interface GameCardProps {
 
 export function GameCard({ game, onPress, isPlayedToday }: GameCardProps) {
   const scale = useSharedValue(1);
-  const tintColor = useThemeColor({}, "tint");
   const cardBackground = useThemeColor({ light: "#FFFFFF", dark: "#1F2937" }, "card");
   const borderColor = useThemeColor({ light: "#E5E7EB", dark: "#374151" }, "cardBorder");
   const shadowColor = useThemeColor({}, "shadow");

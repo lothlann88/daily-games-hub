@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef, useState, ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, ReactNode } from "react";
 import { useRouter, useSegments } from "expo-router";
 import type { AuthRecord } from "pocketbase";
 import { pb } from "@/lib/pocketbase";
@@ -138,8 +138,21 @@ export function AuthProvider({ children }: AuthProviderProps) {
       unsubscribe();
       timeouts.forEach(clearTimeout);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
+
+  // Stable identity so the navigation effect can list it as a dependency
+  // without re-running on every render.
+  const checkOnboardingAndRedirect = useCallback(async () => {
+    const completed = await hasCompletedOnboarding();
+    if (!completed) {
+      console.log("[Auth] Onboarding not completed, redirecting");
+      router.replace("/onboarding" as any);
+    } else {
+      console.log("[Auth] Redirecting to home");
+      router.replace("/(tabs)" as any);
+    }
+  }, [router]);
 
   // Handle navigation based on auth state. Also waits while a sync is in
   // flight: the first sync on a new device decides whether onboarding is
@@ -170,18 +183,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // Authenticated, not in onboarding, not in tabs -> check onboarding
       checkOnboardingAndRedirect();
     }
-  }, [user, loading, syncing, segments]);
-
-  const checkOnboardingAndRedirect = async () => {
-    const completed = await hasCompletedOnboarding();
-    if (!completed) {
-      console.log("[Auth] Onboarding not completed, redirecting");
-      router.replace("/onboarding" as any);
-    } else {
-      console.log("[Auth] Redirecting to home");
-      router.replace("/(tabs)" as any);
-    }
-  };
+  }, [user, loading, syncing, segments, router, checkOnboardingAndRedirect]);
 
   const retrySync = async () => {
     if (!user) {

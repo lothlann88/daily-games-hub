@@ -14,7 +14,6 @@ import * as Haptics from "expo-haptics";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { IconSymbol } from "@/components/ui/icon-symbol";
-import { getGameIcon } from "@/components/ui/game-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useGames } from "@/hooks/use-storage";
 import { useThemeColor } from "@/hooks/use-theme-color";

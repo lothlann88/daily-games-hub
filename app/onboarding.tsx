@@ -112,7 +112,7 @@ export default function OnboardingScreen() {
         <View style={styles.form}>
           <View style={styles.formGroup}>
             <ThemedText type="subtitle" style={styles.label}>
-              What's your name?
+              What&apos;s your name?
             </ThemedText>
             <TextInput
               style={[styles.input, { backgroundColor: inputBg, borderColor, color: primary }]}
