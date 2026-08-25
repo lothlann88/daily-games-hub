@@ -159,11 +159,12 @@ Item IDs (M/L) refer to the 2026-08 stability & security audit.
 
 Actions on the host or its services, not code:
 
-- **Cloudflare cache rule for `/sw.js`** *(open, found 2026-08-23)* — the edge
-  caches the service worker for 4 hours (`cf-cache-status: HIT`,
-  `max-age=14400`), so a `CACHE_NAME` bump takes hours to reach anyone.
-  Navigation is network-first so the app itself updates; the worker lags. Fix
-  is a cache rule (or short max-age) for `/sw.js` in the Cloudflare dashboard.
+- **Cloudflare cache rule for `/sw.js`** — *resolved (2026-08-25)*: a Cache Rule
+  (`URI Path equals /sw.js` → Bypass cache) stops the edge holding the service
+  worker. Until then Cloudflare cached it for 4 hours by file extension (the
+  origin sends no `Cache-Control`), so a `CACHE_NAME` bump took hours to reach
+  anyone. `/sw.js` now returns `cf-cache-status: DYNAMIC` while hashed bundles
+  still `HIT`, so updates propagate at once without weakening asset caching.
 - **Continuous integration** *(parked; design follows Grey Tide's parked CI
   entry)* — no gate runs automatically; everything is a manual command. The
   settled shape when picked up: Gitea Actions or GitHub Actions running
@@ -178,4 +179,6 @@ Actions on the host or its services, not code:
   policies still cover `/_/*` and `/api/collections/_superusers/*` **with the
   hostname spelled correctly** (a typo'd hostname left the superuser API open
   until 2026-08-21; the `http.pb.js` middleware is the in-repo backstop, not a
-  replacement); rotate the Gitea→GitHub mirror token before it expires.
+  replacement); confirm the `/sw.js` Cache Rule still bypasses the edge after
+  any Cloudflare caching change; rotate the Gitea→GitHub mirror token before it
+  expires.
