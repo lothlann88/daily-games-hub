@@ -129,10 +129,11 @@ Item IDs (M/L) refer to the 2026-08 stability & security audit.
   stores `Infinity`; `longestStreak` is a monotone max that never deflates
   after plays are deleted. The deflate half is a behaviour change users can
   see — decide before shipping.
-- **Error boundary and tests for the risky modules** *(the code half of audit
-  L7)* — one render crash blanks the whole app; `lib/sync.ts`, `lib/storage.ts`
-  and `lib/friends.ts` have no coverage. The storage-race and merge suites are
-  the shape to extend.
+- **Error boundary and unit coverage for the risky modules** *(part of audit
+  L7)* — one render crash still blanks the whole app; `lib/sync.ts`,
+  `lib/storage.ts` and `lib/friends.ts` have no unit coverage. The
+  storage-race and merge suites are the shape to extend. (A browser smoke rig
+  now guards the happy path end to end — `corepack pnpm smoke`.)
 - **Service worker: stale-while-revalidate (L2)** — hashed assets are
   cache-first behind a hand-bumped `CACHE_NAME`; a missed bump serves stale
   bundles indefinitely.

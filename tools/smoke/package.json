@@ -1,0 +1,11 @@
+{
+  "name": "daily-games-hub-smoke",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "smoke": "node smoke.mjs"
+  },
+  "dependencies": {
+    "playwright": "^1.58.0"
+  }
+}

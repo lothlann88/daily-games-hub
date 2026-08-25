@@ -13,7 +13,8 @@
     "format": "prettier --write .",
     "test": "vitest run --passWithNoTests",
     "android": "expo start --android",
-    "ios": "expo start --ios"
+    "ios": "expo start --ios",
+    "smoke": "cd tools/smoke && node smoke.mjs"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
