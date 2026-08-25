@@ -9,6 +9,20 @@ services:
     build: ./server
     container_name: dailygame
     restart: unless-stopped
+    # Defence in depth: the image already runs unprivileged (UID 8090, see the
+    # Dockerfile); a compromised process also can't gain privileges or use
+    # capabilities, a runaway can't exhaust host RAM, and logs can't fill
+    # docker.img.
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    mem_limit: 512m
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
     ports:
       # Host bind IP and port are configurable (defaults are safe for a
       # single-host setup). PB_BIND=127.0.0.1 keeps it host-only; setting it to
@@ -42,6 +56,13 @@ services:
     container_name: dailygame-tunnel
     restart: unless-stopped
     profiles: ["tunnel"]
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
     command: tunnel --no-autoupdate run
     environment:
       # Empty default (not :?) so a plain deploy — which interpolates every

@@ -110,13 +110,6 @@ the source of truth.
 
 Item IDs (M/L) refer to the 2026-08 stability & security audit.
 
-- **Container hardening (M2)** *(from the 2026-08 audit; landing in the playbook
-  retrofit)* — non-root fixed UID, `no-new-privileges`, `cap_drop: ALL`, a
-  memory limit and log rotation, matching Grey Tide's pattern.
-- **Trust only `CF-Connecting-IP` (L8)** *(from the 2026-08 audit; landing in
-  the playbook retrofit)* — PocketBase trusts a configured proxy header by
-  presence alone, so the `X-Forwarded-For` fallback would let a direct
-  (tailnet) client adopt any rate-limit identity.
 - **Surface storage write failures (M6)** — saves swallow errors and resolve
   successfully, so a quota failure is indistinguishable from a saved write.
   Needs an error surface decision: banner per failure, or a persistent

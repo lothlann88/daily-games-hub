@@ -16,6 +16,10 @@ set -euo pipefail
 
 TARGET="${1:-}"
 APP_DIR="/mnt/user/appdata/dailygame/app"
+# Live database dir on the host; must stay owned by UID 8090 (the container's
+# unprivileged pocketbase user — see server/Dockerfile). Override with
+# PB_DATA_DIR if the host .env moves it.
+DATA_DIR="${PB_DATA_DIR:-/mnt/user/appdata/dailygame/pb_data}"
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 # Compose project/service names (see docker-compose.yml). The build produces an
@@ -73,6 +77,11 @@ done
 
 # Capture the image the container is currently running as "last known good",
 # BEFORE the build replaces it. Empty on a first-ever deploy (no container yet).
+echo "→ ensuring pb_data is owned by the container user (UID 8090)"
+# The container runs unprivileged; the bind-mounted database dir must be
+# writable by its fixed UID. Idempotent — file contents are never touched.
+ssh -o BatchMode=yes "$TARGET" "mkdir -p '$DATA_DIR' && chown -R 8090:8090 '$DATA_DIR'"
+
 echo "→ recording current image for rollback"
 GOOD_IMAGE="$(ssh -o BatchMode=yes "$TARGET" "docker inspect --format '{{.Image}}' '$CONTAINER' 2>/dev/null || true")"
 GOOD_IMAGE="${GOOD_IMAGE//[$'\r\n']/}"
