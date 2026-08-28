@@ -140,9 +140,6 @@ Item IDs (M/L) refer to the 2026-08 stability & security audit.
 - **Resize oversized icons (L3)** — five 5.1 MB PNGs are tracked; the "192px"
   and "512px" icons are the same file and both are precached (~10 MB per
   install).
-- **Close latent config footguns (L5)** — gitignore `.env.production`; delete
-  the vestigial Manus env mapping in `scripts/load-env.js`, which would copy
-  any matching host variable into the public bundle.
 - **Tidy dev creds and the native intent filter (L6)** — dev-only passwords
   committed in CLAUDE.md; the dormant Android intent filter uses `host: "*"`.
   Cosmetic until a native build exists.
