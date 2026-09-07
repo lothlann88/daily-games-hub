@@ -18,7 +18,7 @@ invariants and gotchas that are not obvious from the code.
   forward the flag) · `test` (vitest).
 - `corepack pnpm build` exports the web app into `server/pb_public` and stamps
   `version.json` there (playbook §5) — generated, never hand-edited.
-- Local backend: `server/.dev/pocketbase` (0.39.10, gitignored, version pinned
+- Local backend: `server/.dev/pocketbase` (0.39.11, gitignored, version pinned
   in `server/Dockerfile` with SHA256). Dev db `server/pb_data_dev` has test
   users `alice@test.local` / `bob@test.local` (pass12345) and superuser
   `admin@test.local` (admin12345).

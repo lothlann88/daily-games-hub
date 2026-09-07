@@ -41,7 +41,7 @@ Planned work is tracked in the [Roadmap](#roadmap) at the end of this file.
 ```bash
 corepack pnpm install
 
-# Terminal 1 — backend (PocketBase 0.39.10, pinned in server/Dockerfile).
+# Terminal 1 — backend (PocketBase 0.39.11, pinned in server/Dockerfile).
 # First time: download the binary to server/.dev/pocketbase (gitignored).
 server/.dev/pocketbase serve --http=127.0.0.1:8090 \
   --dir server/pb_data_dev \
