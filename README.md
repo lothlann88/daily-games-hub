@@ -122,9 +122,6 @@ Item IDs (M/L) refer to the 2026-08 stability & security audit.
   unbounded with no backoff, and the 60-second sync timeout abandons rather
   than aborts, so late writes can still land. Touches the auth context and the
   sync layer's cancellation story — needs a design pass.
-- **Debounce friend search (L1)** — the add-friend screen queries on every
-  keystroke. Less pressing since exact-username lookup (one request, not ~40),
-  but still unthrottled typing.
 - **Score finiteness; recompute longest streak (L4)** — `parseFloat("1e999")`
   stores `Infinity`; `longestStreak` is a monotone max that never deflates
   after plays are deleted. The deflate half is a behaviour change users can

@@ -10,6 +10,14 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: "1.11.1",
+    date: "2026-09-12",
+    entries: [
+      "Looking someone up by username now waits until you stop typing instead of searching after every letter \u2014 the results no longer flash \u201cno account with that username\u201d while you are still halfway through it.",
+      "Fixed a case where correcting a username quickly could leave the wrong person on screen, because a slower earlier search could land after a newer one.",
+    ],
+  },
+  {
     version: "1.11.0",
     date: "2026-08-23",
     entries: [

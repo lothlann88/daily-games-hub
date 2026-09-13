@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   StyleSheet,
   View,
@@ -17,8 +17,13 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { FeedbackBanner, type FeedbackState } from "@/components/feedback-banner";
 import * as friendsLib from "@/lib/friends";
+import { debounce } from "@/lib/debounce";
 import { normaliseUsernameQuery } from "@/lib/username";
 import type { SearchResult } from "@/types/friends";
+
+// Long enough that typing a whole username costs one lookup, short enough
+// that results still feel immediate once you stop.
+const SEARCH_DEBOUNCE_MS = 350;
 
 export default function AddFriendScreen() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -35,26 +40,61 @@ export default function AddFriendScreen() {
   const borderColor = useThemeColor({}, "cardBorder");
   const inputBackground = useThemeColor({ light: "#F9FAFB", dark: "#374151" }, "card");
 
-  const handleSearch = async (query: string) => {
+  // Only the newest search may write to state. Responses can land out of
+  // order, and an older one would otherwise overwrite a newer result — or
+  // arrive after the field has been cleared.
+  const searchTicket = useRef(0);
+
+  // Reads nothing from state, so holding one instance for the screen's whole
+  // life (below) can't capture a stale render.
+  const runSearch = async (query: string) => {
+    const ticket = ++searchTicket.current;
+
+    try {
+      setSearching(true);
+      const results = await friendsLib.searchUsers(query);
+      if (ticket !== searchTicket.current) return;
+      setSearchResults(results);
+    } catch (error) {
+      if (ticket !== searchTicket.current) return;
+      console.error("Error searching users:", error);
+      setFeedback({ tone: "error", message: "Couldn't search just now. Please try again." });
+    } finally {
+      if (ticket === searchTicket.current) setSearching(false);
+    }
+  };
+
+  const debouncedSearch = useRef(
+    debounce((query: string) => {
+      void runSearch(query);
+    }, SEARCH_DEBOUNCE_MS)
+  );
+
+  // Leaving mid-type would otherwise fire a lookup into a screen that is gone.
+  // A request already in flight needs no guard: its setState lands on an
+  // unmounted component, which React treats as a no-op.
+  useEffect(() => {
+    const pending = debouncedSearch.current;
+    return () => pending.cancel();
+  }, []);
+
+  const handleChangeText = (query: string) => {
     setSearchQuery(query);
 
     // searchUsers handles a leading @ itself; below three characters it can
     // never be a username, so don't bother the server.
     if (!normaliseUsernameQuery(query)) {
+      debouncedSearch.current.cancel();
+      searchTicket.current++;
       setSearchResults([]);
+      setSearching(false);
       return;
     }
 
-    try {
-      setSearching(true);
-      const results = await friendsLib.searchUsers(query);
-      setSearchResults(results);
-    } catch (error) {
-      console.error("Error searching users:", error);
-      setFeedback({ tone: "error", message: "Couldn't search just now. Please try again." });
-    } finally {
-      setSearching(false);
-    }
+    // Show the spinner from the first keystroke: during the debounce window
+    // the list would otherwise flash "No account with that username".
+    setSearching(true);
+    debouncedSearch.current(query);
   };
 
   const handleSendRequest = async (userId: string) => {
@@ -65,7 +105,7 @@ export default function AddFriendScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
       // Refresh search results to update button states
-      await handleSearch(searchQuery);
+      await runSearch(searchQuery);
 
       setFeedback({ tone: "success", message: "Friend request sent." });
     } catch (error: any) {
@@ -184,14 +224,14 @@ export default function AddFriendScreen() {
             placeholder="Enter their exact username"
             placeholderTextColor={useThemeColor({ light: "#9CA3AF", dark: "#6B7280" }, "icon")}
             value={searchQuery}
-            onChangeText={handleSearch}
+            onChangeText={handleChangeText}
             autoFocus
             autoCapitalize="none"
             autoCorrect={false}
           />
           {searching && <ActivityIndicator size="small" color={tintColor} />}
           {searchQuery.length > 0 && !searching && (
-            <Pressable onPress={() => handleSearch("")}>
+            <Pressable onPress={() => handleChangeText("")}>
               <IconSymbol name="xmark.circle.fill" size={20} color={tintColor} />
             </Pressable>
           )}
