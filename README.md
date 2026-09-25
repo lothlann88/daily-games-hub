@@ -102,80 +102,109 @@ marks the last Supabase revision).
 
 ## Roadmap
 
-Candidate future work, roughly ordered. None of it is committed; each item gets
-its own design pass before implementation. Shipped work leaves this list — the
-in-app changelog (Settings → About) is the record of what was done. A rendered
-mirror of this section is published as a private artifact board; the README is
-the source of truth.
+Candidate future work, in rough order of intent: **Next** is what would be
+picked up first, **Later** needs a reason or a design pass before it moves up,
+**Deferred design questions** are items whose *decision* is the work, and
+**Not planned** records what is deliberately out of scope so nobody proposes it
+again. None of it is committed to a date; each item gets its own design pass
+before implementation. Shipped work leaves this list — the in-app changelog
+(Settings → About) is the record of what was done. A rendered mirror of this
+section is published as a private artifact board; the README is the source of
+truth.
 
-Item IDs (M/L) refer to the 2026-08 stability & security audit.
+Item IDs (M/L) refer to the 2026-08 stability & security audit; an ID implies
+the item's severity where no tag is given.
 
-- **Surface storage write failures (M6)** — saves swallow errors and resolve
-  successfully, so a quota failure is indistinguishable from a saved write.
-  Needs an error surface decision: banner per failure, or a persistent
-  "storage unhealthy" state.
-- **Transactional friendship hooks (M7)** — the accept hook writes two
-  friendship rows without a transaction; a half-failure leaves the
+### Next
+
+Small, wanted, and already designed — the natural next releases, in list order.
+
+- **Transactional friendship hooks (M7)** [risk: low] — the accept hook writes
+  two friendship rows without a transaction; a half-failure leaves the
   one-directional friendship the hooks exist to prevent. Wrap in
   `runInTransaction` and narrow the swallow-all catches.
-- **Cap sync retries; cancel on timeout (M9)** — the 30-second retry chain is
-  unbounded with no backoff, and the 60-second sync timeout abandons rather
-  than aborts, so late writes can still land. Touches the auth context and the
-  sync layer's cancellation story — needs a design pass.
-- **Debounce friend search (L1)** — the add-friend screen queries on every
-  keystroke. Less pressing since exact-username lookup (one request, not ~40),
-  but still unthrottled typing.
-- **Score finiteness; recompute longest streak (L4)** — `parseFloat("1e999")`
-  stores `Infinity`; `longestStreak` is a monotone max that never deflates
-  after plays are deleted. The deflate half is a behaviour change users can
-  see — decide before shipping.
+- **Leaderboard streaks** [severity: low] [risk: low] — the friends leaderboard
+  reports every streak as 0 (`lib/friends.ts` TODO); wire it to the shared
+  streak calculation the home screen already uses.
+- **Debounce friend search (L1)** [risk: low] — the add-friend screen queries on
+  every keystroke. Less pressing since exact-username lookup (one request, not
+  ~40), but still unthrottled typing.
 - **Error boundary and unit coverage for the risky modules** *(part of audit
-  L7)* — one render crash still blanks the whole app; `lib/sync.ts`,
-  `lib/storage.ts` and `lib/friends.ts` have no unit coverage. The
-  storage-race and merge suites are the shape to extend. (A browser smoke rig
-  now guards the happy path end to end — `corepack pnpm smoke`.)
-- **Service worker: stale-while-revalidate (L2)** — hashed assets are
-  cache-first behind a hand-bumped `CACHE_NAME`; a missed bump serves stale
-  bundles indefinitely.
-- **Resize oversized icons (L3)** — five 5.1 MB PNGs are tracked; the "192px"
-  and "512px" icons are the same file and both are precached (~10 MB per
-  install).
+  L7)* [risk: low] — one render crash still blanks the whole app;
+  `lib/sync.ts`, `lib/storage.ts` and `lib/friends.ts` have no unit coverage.
+  The storage-race and merge suites are the shape to extend. (A browser smoke
+  rig now guards the happy path end to end — `corepack pnpm smoke`.)
+- **Resize oversized icons (L3)** [risk: low] — five 5.1 MB PNGs are tracked;
+  the "192px" and "512px" icons are the same file and both are precached
+  (~10 MB per install).
+
+### Later
+
+Worth doing, not yet pressing; each needs a design pass before code.
+
+- **Cap sync retries; cancel on timeout (M9)** [risk: medium] — the 30-second
+  retry chain is unbounded with no backoff, and the 60-second sync timeout
+  abandons rather than aborts, so late writes can still land. Touches the auth
+  context and the sync layer's cancellation story.
+- **Service worker: stale-while-revalidate (L2)** [risk: medium] — hashed
+  assets are cache-first behind a hand-bumped `CACHE_NAME`; a missed bump
+  serves stale bundles indefinitely. A wrong service worker strands every
+  installed copy, so the smoke rig is the gate.
+- **Accept a friend request from search results** — the add-friend screen shows
+  "accept from the Friends tab" instead of an unfinished inline accept path.
 - **Tidy dev creds and the native intent filter (L6)** — dev-only passwords
   committed in CLAUDE.md; the dormant Android intent filter uses `host: "*"`.
   Cosmetic until a native build exists.
-- **Leaderboard streaks** — the friends leaderboard reports every streak as 0
-  (`lib/friends.ts` TODO); wire it to the real calculation.
-- **Accept a friend request from search results** — the add-friend screen shows
-  "accept from the Friends tab" instead of an unfinished inline accept path.
-- Known accepted behaviour, not a bug: **`is_private` is read by no rule.**
+
+### Deferred design questions
+
+Recorded so the decision is taken deliberately rather than defaulted.
+
+- **Surface storage write failures (M6)** — saves swallow errors and resolve
+  successfully, so a quota failure is indistinguishable from a saved write.
+  Decide the error surface first: a banner per failure, or a persistent
+  "storage unhealthy" state.
+- **Score finiteness; recompute longest streak (L4)** [risk: medium] —
+  `parseFloat("1e999")` stores `Infinity`; `longestStreak` is a monotone max
+  that never deflates after plays are deleted. The finiteness check is a plain
+  fix; the deflate half is a behaviour change users can see — decide before
+  shipping.
+- **`is_private` is read by no rule** — known accepted behaviour, not a bug.
   Since exact-username lookup replaced browsing, the flag no longer affects who
-  can find you — nobody can browse at all. Enforcing or removing it is a design
-  question, deferred.
+  can find you — nobody can browse at all. Enforce it, or remove the field.
+
+### Not planned
+
+- **A native (Android / iOS) build** — web is the only deployment target and the
+  native path is dormant: `Platform.OS` guards stay, but no native-only
+  dependencies are added and nothing is tested outside the browser. Revisit
+  only with a concrete reason; the Expo scaffolding makes it possible, not
+  planned.
 
 ### Operational to-dos
 
 Actions on the host or its services, not code:
 
+- **Continuous integration** *(parked — design recorded; follows Grey Tide's
+  now-running CI)* — no gate runs automatically; everything is a manual
+  command. The settled shape when picked up: Gitea Actions on the existing
+  self-hosted runner running `corepack pnpm check`, `lint`, `test` plus the
+  smoke rig on push to `main` — verification only, no auto-deploy, no secrets.
+- **Periodic checks** *(recurring)* — after any Zero Trust change, confirm the
+  Access policies still cover `/_/*` and `/api/collections/_superusers/*`
+  **with the hostname spelled correctly** (a typo'd hostname left the superuser
+  API open until 2026-08-21; the `http.pb.js` middleware is the in-repo
+  backstop, not a replacement); confirm the `/sw.js` Cache Rule still bypasses
+  the edge after any Cloudflare caching change; rotate the Gitea→GitHub mirror
+  token before it expires.
 - **Cloudflare cache rule for `/sw.js`** — *resolved (2026-08-25)*: a Cache Rule
   (`URI Path equals /sw.js` → Bypass cache) stops the edge holding the service
   worker. Until then Cloudflare cached it for 4 hours by file extension (the
   origin sends no `Cache-Control`), so a `CACHE_NAME` bump took hours to reach
   anyone. `/sw.js` now returns `cf-cache-status: DYNAMIC` while hashed bundles
   still `HIT`, so updates propagate at once without weakening asset caching.
-- **Continuous integration** *(parked; design follows Grey Tide's parked CI
-  entry)* — no gate runs automatically; everything is a manual command. The
-  settled shape when picked up: Gitea Actions or GitHub Actions running
-  `corepack pnpm check`, `lint`, `test` plus the smoke rig on push to `main` —
-  verification only, no auto-deploy.
 - **Off-host backups** — *resolved (Aug 2026)*: Duplicacy copies the whole
   appdata share (including `pb_data` and its nightly 03:00 snapshots) to
   Backblaze, storage encrypted. The newest `@auto_pb_backup_*.zip` inside
   `pb_data/backups` is the restore point (dashboard → Settings → Backups);
   a periodic restore test remains worth doing.
-- **Periodic checks** — after any Zero Trust change, confirm the Access
-  policies still cover `/_/*` and `/api/collections/_superusers/*` **with the
-  hostname spelled correctly** (a typo'd hostname left the superuser API open
-  until 2026-08-21; the `http.pb.js` middleware is the in-repo backstop, not a
-  replacement); confirm the `/sw.js` Cache Rule still bypasses the edge after
-  any Cloudflare caching change; rotate the Gitea→GitHub mirror token before it
-  expires.
