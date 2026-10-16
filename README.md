@@ -152,8 +152,6 @@ Worth doing, not yet pressing; each needs a design pass before code.
   assets are cache-first behind a hand-bumped `CACHE_NAME`; a missed bump
   serves stale bundles indefinitely. A wrong service worker strands every
   installed copy, so the smoke rig is the gate.
-- **Accept a friend request from search results** — the add-friend screen shows
-  "accept from the Friends tab" instead of an unfinished inline accept path.
 - **Tidy dev creds and the native intent filter (L6)** — dev-only passwords
   committed in CLAUDE.md; the dormant Android intent filter uses `host: "*"`.
   Cosmetic until a native build exists.

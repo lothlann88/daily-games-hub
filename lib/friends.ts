@@ -238,6 +238,7 @@ export async function searchUsers(query: string): Promise<SearchResult[]> {
       is_friend: isFriend,
       has_pending_request: requestStatus.has_request,
       request_direction: requestStatus.direction,
+      request_id: requestStatus.request_id,
     },
   ];
 }
@@ -261,7 +262,7 @@ export async function checkAreFriends(friendId: string): Promise<boolean> {
  */
 export async function checkPendingRequest(
   userId: string
-): Promise<{ has_request: boolean; direction?: "sent" | "received" }> {
+): Promise<{ has_request: boolean; direction?: "sent" | "received"; request_id?: string }> {
   const me = currentUserId();
   if (!me) return { has_request: false };
 
@@ -274,7 +275,11 @@ export async function checkPendingRequest(
 
   const request: any = result.items[0];
   if (!request) return { has_request: false };
-  return { has_request: true, direction: request.sender === me ? "sent" : "received" };
+  return {
+    has_request: true,
+    direction: request.sender === me ? "sent" : "received",
+    request_id: request.id,
+  };
 }
 
 // ============================================================================

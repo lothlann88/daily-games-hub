@@ -10,6 +10,13 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: "1.12.0",
+    date: "2026-10-16",
+    entries: [
+      "If someone has already sent you a friend request, tapping Accept when you look them up on the Add Friend screen now accepts it there and then — no need to go back to the Friends tab.",
+    ],
+  },
+  {
     version: "1.11.0",
     date: "2026-08-23",
     entries: [

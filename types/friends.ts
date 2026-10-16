@@ -49,6 +49,8 @@ export interface SearchResult {
   is_friend: boolean;
   has_pending_request: boolean;
   request_direction?: "sent" | "received";
+  /** The pending request's record id, so it can be accepted from search. */
+  request_id?: string;
 }
 
 export interface FriendScore {

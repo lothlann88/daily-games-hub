@@ -77,6 +77,34 @@ export default function AddFriendScreen() {
     }
   };
 
+  const handleAcceptRequest = async (item: SearchResult) => {
+    if (!item.request_id) {
+      // Shouldn't happen: searchUsers sets request_id with every pending request.
+      setFeedback({ tone: "error", message: "Couldn't find that request. Please search again." });
+      return;
+    }
+    try {
+      setSendingRequestTo(item.id);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      // The server hook writes both friendship rows on acceptance.
+      await friendsLib.acceptFriendRequest(item.request_id);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+      // Refresh so the button flips to "Friends"
+      await handleSearch(searchQuery);
+
+      setFeedback({ tone: "success", message: `You and ${item.name} are now friends.` });
+    } catch (error: any) {
+      console.error("Error accepting friend request:", error);
+      setFeedback({ tone: "error", message: "Couldn't accept that request. Please try again." });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      // The request may have been withdrawn meanwhile; show the current state.
+      await handleSearch(searchQuery);
+    } finally {
+      setSendingRequestTo(null);
+    }
+  };
+
   const renderSearchResult = ({ item }: { item: SearchResult }) => {
     const getButtonText = () => {
       if (item.is_friend) return "Friends";
@@ -92,8 +120,7 @@ export default function AddFriendScreen() {
 
     const handleButtonPress = async () => {
       if (item.has_pending_request && item.request_direction === "received") {
-        // TODO: Accept the request
-        setFeedback({ tone: "success", message: "Accept this request from the Friends tab." });
+        await handleAcceptRequest(item);
       } else if (!item.is_friend && !item.has_pending_request) {
         await handleSendRequest(item.id);
       }
