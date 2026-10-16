@@ -74,6 +74,8 @@ function RootLayoutInner() {
             <Stack.Screen name="modal" options={{ presentation: "modal", title: "Modal" }} />
             <Stack.Screen name="game-detail" options={{ presentation: "modal", title: "Game Detail" }} />
             <Stack.Screen name="add-game" options={{ presentation: "modal", title: "Add Game" }} />
+            {/* Draws its own header with a back button. */}
+            <Stack.Screen name="add-friend" options={{ headerShown: false }} />
           </Stack>
           <StatusBar style="auto" />
           </AuthProvider>

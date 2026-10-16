@@ -10,6 +10,13 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: "1.12.1",
+    date: "2026-10-16",
+    entries: [
+      "The Add Friend screen no longer shows a stray \"add-friend\" bar above its own title.",
+    ],
+  },
+  {
     version: "1.12.0",
     date: "2026-10-16",
     entries: [
