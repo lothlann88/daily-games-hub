@@ -112,6 +112,8 @@ before implementation. Shipped work leaves this list — the in-app changelog
 section is published as a private artifact board; the README is the source of
 truth.
 
+When you close a backlog ticket, update the README Later list.
+
 Item IDs (M/L) refer to the 2026-08 stability & security audit; an ID implies
 the item's severity where no tag is given.
 

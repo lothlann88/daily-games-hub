@@ -1,0 +1,40 @@
+{
+  "mcpServers": {
+    "AgentsRoom-MCP": {
+      "command": "node",
+      "args": [
+        "/home/serhan/.agentsroom/mcp/bundle-e4af42b51378/app-mcp-server.cjs"
+      ],
+      "env": {
+        "AR_PROJECT_ID": "proj-1792164560774-id2cnz",
+        "AR_PROJECT_PATH": "/home/serhan/projects/daily-games-hub",
+        "AR_DESKTOP_PROJECT_ID": "proj-1792164560774-id2cnz",
+        "AR_API_BASE_URL": "https://agentsroom.dev",
+        "AR_SETTINGS_FILE": "/home/serhan/.agentsroom/mcp/settings.json",
+        "AR_APP_VERSION": "1.218.0",
+        "AR_BRIDGE_FILE": "/home/serhan/.agentsroom/mcp/bridge.json"
+      }
+    },
+    "AgentsRoom-Test-Runner": {
+      "command": "node",
+      "args": [
+        "/home/serhan/.agentsroom/mcp/bundle-e4af42b51378/test-runner-mcp-server.cjs"
+      ],
+      "env": {
+        "AR_BROWSER_BRIDGE_FILE": "/home/serhan/.agentsroom/mcp/bridge.json",
+        "AR_BROWSER_PROJECT_ID": "proj-1792164560774-id2cnz",
+        "AR_PROJECT_PATH": "/home/serhan/projects/daily-games-hub"
+      }
+    },
+    "AgentsRoom-QA-Tester": {
+      "command": "node",
+      "args": [
+        "/home/serhan/.agentsroom/mcp/bundle-e4af42b51378/qa-tester-mcp-server.cjs"
+      ],
+      "env": {
+        "AR_BROWSER_BRIDGE_FILE": "/home/serhan/.agentsroom/mcp/bridge.json",
+        "AR_BROWSER_PROJECT_ID": "proj-1792164560774-id2cnz"
+      }
+    }
+  }
+}
